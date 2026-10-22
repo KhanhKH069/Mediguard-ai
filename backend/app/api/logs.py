@@ -5,6 +5,7 @@ from app.database import get_db
 from app.models.interaction_log import InteractionLog
 from app.models.schedule import Schedule
 from app.schemas.log import InteractionLogResponse, CaregiverConfirmRequest
+from app.api.websocket import broadcast_sync
 
 router = APIRouter(prefix="/api/logs", tags=["Logs"])
 
@@ -52,6 +53,14 @@ def caregiver_confirm(
     db.add(log_entry)
     db.commit()
     db.refresh(log_entry)
+
+    broadcast_sync("caregiver_confirmed", {
+        "schedule_id": schedule_id,
+        "elder_id": elder_id,
+        "confirmed_by": req.caregiver_id,
+        "notes": log_entry.notes,
+        "timestamp": log_entry.timestamp.isoformat()
+    })
 
     return {
         "success": True,

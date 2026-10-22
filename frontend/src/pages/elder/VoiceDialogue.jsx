@@ -3,8 +3,9 @@ import { Mic, MicOff, ArrowLeft, Volume2, Sparkles, RotateCcw } from 'lucide-rea
 import { createSpeechRecognizer, playVoiceSpeech, unlockAllAudio } from '../../services/voiceService';
 import { processVoiceSpeech } from '../../services/api';
 import { playChimeSound } from '../../utils/soundEffects';
+import AudioEqualizer from '../../components/AudioEqualizer';
 
-const INITIAL_GREETING = 'Cháu đang lắng nghe. Bác cứ bấm micro hoặc chọn câu mẫu bên dưới để nói chuyện nhé!';
+const INITIAL_GREETING = 'Dạ thưa Bác, cháu đang lắng nghe đây ạ! Bác bấm micro lớn bên dưới hoặc chọn câu mẫu để trò chuyện với cháu nhé ạ.';
 
 export default function VoiceDialogue({ onBack }) {
   const [selectedVoice, setSelectedVoice] = useState(
@@ -77,7 +78,7 @@ export default function VoiceDialogue({ onBack }) {
   const toggleListen = async () => {
     await unlockAllAudio();
     if (!recognizer) {
-      alert('Trình duyệt chưa hỗ trợ micro hoặc chưa cấp quyền. Bác có thể bấm các câu mẫu bên dưới để nói chuyện với cháu nhé!');
+      alert('Trình duyệt chưa hỗ trợ micro hoặc chưa cấp quyền. Bác có thể bấm các câu mẫu bên dưới để nói chuyện với cháu nhé ạ!');
       return;
     }
     if (isListening) {
@@ -102,8 +103,8 @@ export default function VoiceDialogue({ onBack }) {
     setSelectedVoice(voice);
     localStorage.setItem('mediguard_voice', voice);
     const sampleText = voice === 'vi-VN-NamMinhNeural'
-      ? 'Dạ, cháu đã đổi sang giọng Nam Minh trầm ấm, rõ chữ cho bác rồi ạ!'
-      : 'Dạ, cháu đã đổi sang giọng Hoài My nhẹ nhàng, truyền cảm cho bác rồi ạ!';
+      ? 'Dạ thưa Bác, cháu đã đổi sang giọng Nam Minh trầm ấm, tròn vành rõ chữ cho Bác rồi ạ!'
+      : 'Dạ thưa Bác, cháu đã đổi sang giọng Hoài My nhẹ nhàng, truyền cảm cho Bác rồi ạ!';
     setReply(sampleText);
     setLastAudioUrl(null);
     setIsPlayingVoice(true);
@@ -118,10 +119,10 @@ export default function VoiceDialogue({ onBack }) {
     setVoiceRate(rate);
     localStorage.setItem('mediguard_rate', rate);
     const sampleText = rate === '-12%'
-      ? 'Dạ, cháu sẽ nói thật chậm rãi cho bác dễ nghe nhé!'
+      ? 'Dạ thưa Bác, cháu sẽ nói thật chậm rãi từng chữ để Bác dễ nghe nhé ạ!'
       : rate === '-8%'
-      ? 'Dạ, cháu đang đọc ở tốc độ vừa vặn, rõ ràng rồi ạ!'
-      : 'Dạ, cháu đang đọc ở tốc độ bình thường ạ!';
+      ? 'Dạ thưa Bác, cháu đang đọc ở tốc độ vừa vặn, rõ ràng rồi ạ!'
+      : 'Dạ thưa Bác, cháu đang đọc ở tốc độ tiêu chuẩn ạ!';
     setReply(sampleText);
     setLastAudioUrl(null);
     setIsPlayingVoice(true);
@@ -135,7 +136,7 @@ export default function VoiceDialogue({ onBack }) {
   const handleSpeechProcessing = async (userText) => {
     if (!userText || !userText.trim()) return;
     setIsLoading(true);
-    setReply('Đang suy nghĩ và chuẩn bị giọng nói...');
+    setReply('Dạ cháu đang suy nghĩ và chuẩn bị giọng nói...');
     try {
       // Gọi backend xử lý quy tắc an toàn & Edge-TTS tiếng Việt theo giọng đã chọn
       const data = await processVoiceSpeech(userText.trim(), selectedVoice, voiceRate);
@@ -161,26 +162,28 @@ export default function VoiceDialogue({ onBack }) {
         lower.includes('đã uống') ||
         lower.includes('uống xong') ||
         lower.includes('uống hết') ||
+        lower.includes('uống thuốc rồi') ||
         (lower.includes('uống') && lower.includes('rồi'))
       ) {
-        fallbackReply = 'Cháu đã ghi nhận bác vừa uống thuốc rồi ạ! Bác nhớ uống đủ nước ấm và nghỉ ngơi thật thoải mái nhé!';
+        fallbackReply = 'Dạ cháu đã ghi nhận Bác vừa uống thuốc rồi ạ! Bác nhớ uống đủ nước ấm và nghỉ ngơi thật thoải mái nhé ạ!';
       } else if (
         lower.includes('uống bù') ||
         lower.includes('gấp đôi') ||
         lower.includes('tăng liều') ||
         lower.includes('bỏ cữ')
       ) {
-        fallbackReply = 'Bác ơi, bác tuyệt đối đừng tự ý thay đổi liều lượng thuốc nhé! Cháu đang báo cho gia đình để hỗ trợ bác ngay đây ạ.';
+        fallbackReply = 'Dạ Bác ơi, Bác tuyệt đối đừng tự ý thay đổi liều lượng thuốc nhé ạ! Cháu đang báo ngay cho gia đình để hỗ trợ Bác đây ạ.';
       } else if (
         lower.includes('đau đầu') ||
         lower.includes('chóng mặt') ||
         lower.includes('đau bụng') ||
         lower.includes('mệt') ||
-        lower.includes('buồn nôn')
+        lower.includes('buồn nôn') ||
+        lower.includes('khó thở')
       ) {
-        fallbackReply = 'Cháu ghi nhận bác đang thấy mệt trong người. Bác vui lòng ngồi nghỉ ngơi tại chỗ, cháu đang báo ngay cho người thân ạ!';
+        fallbackReply = 'Dạ cháu ghi nhận Bác đang thấy mệt trong người. Bác vui lòng ngồi nghỉ ngơi tại chỗ, cháu đang báo ngay cho người thân trong gia đình ạ!';
       } else {
-        fallbackReply = 'Chưa kết nối được máy chủ MediGuard AI (cổng 8000). Bác vui lòng kiểm tra xem Backend đã khởi động chưa nhé!';
+        fallbackReply = 'Dạ thưa Bác, hệ thống đang kết nối với máy chủ MediGuard AI. Bác vui lòng đợi trong giây lát hoặc kiểm tra kết nối mạng nhé ạ!';
       }
 
       setReply(fallbackReply);
@@ -206,30 +209,30 @@ export default function VoiceDialogue({ onBack }) {
     <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col items-center gap-6">
       <button
         onClick={onBack}
-        className="self-start flex items-center gap-2 text-xl font-bold text-slate-600 hover:text-slate-900 bg-white px-5 py-3 rounded-2xl shadow-sm transition-colors"
+        className="self-start flex items-center gap-2 text-xl font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-white dark:bg-slate-800/90 px-5 py-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors"
       >
         <ArrowLeft className="w-6 h-6" /> Quay lại màn hình chính
       </button>
 
       <div className="text-center">
-        <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800">
+        <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white">
           Nói Chuyện Với Trợ Lý
         </h2>
-        <p className="text-lg text-slate-500 mt-2">Bác bấm vào hình micro lớn bên dưới hoặc chọn câu hỏi mẫu</p>
+        <p className="text-lg text-slate-500 dark:text-slate-400 mt-2">Bác bấm vào hình micro lớn bên dưới hoặc chọn câu hỏi mẫu</p>
       </div>
 
       {/* Thanh tùy chọn Giọng đọc & Tốc độ nói */}
-      <div className="w-full bg-white rounded-3xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="w-full bg-white dark:bg-slate-900/90 rounded-3xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap justify-center">
-          <Volume2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
-          <span className="text-sm font-bold text-slate-700">Giọng trợ lý:</span>
+          <Volume2 className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Giọng trợ lý:</span>
           <button
             onClick={() => handleVoiceChange('vi-VN-NamMinhNeural')}
             disabled={isLoading || isPlayingVoice}
             className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${
               selectedVoice === 'vi-VN-NamMinhNeural'
                 ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
             👨 Nam Minh (Trầm ấm, rõ chữ)
@@ -240,7 +243,7 @@ export default function VoiceDialogue({ onBack }) {
             className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${
               selectedVoice === 'vi-VN-HoaiMyNeural'
                 ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
             👩 Hoài My (Nữ nhẹ nhàng)
@@ -248,14 +251,14 @@ export default function VoiceDialogue({ onBack }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-center">
-          <span className="text-sm font-bold text-slate-700">Tốc độ:</span>
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Tốc độ:</span>
           <button
             onClick={() => handleRateChange('-12%')}
             disabled={isLoading || isPlayingVoice}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               voiceRate === '-12%'
                 ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
             title="Đọc rất chậm rãi, rõ ràng cho người cao tuổi nghe kém"
           >
@@ -267,7 +270,7 @@ export default function VoiceDialogue({ onBack }) {
             className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               voiceRate === '-8%'
                 ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
             title="Tốc độ khuyên dùng: dễ nghe, tròn chữ"
           >
@@ -279,7 +282,7 @@ export default function VoiceDialogue({ onBack }) {
             className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
               voiceRate === '+0%'
                 ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
             title="Tốc độ nói thông thường"
           >
@@ -291,104 +294,123 @@ export default function VoiceDialogue({ onBack }) {
       {/* Nút Micro to nhấp nháy sóng âm */}
       <div className="relative my-4">
         {isListening && (
-          <div className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-30 scale-150" />
+          <div className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-35 scale-150 pointer-events-none" />
+        )}
+        {isPlayingVoice && (
+          <div className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-25 scale-125 pointer-events-none" />
         )}
         <button
           onClick={toggleListen}
           disabled={isLoading}
-          className={`relative w-36 h-36 md:w-44 md:h-44 rounded-full flex items-center justify-center shadow-2xl transition-all transform active:scale-90 ${
-            isListening ? 'bg-rose-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+          className={`relative w-40 h-40 md:w-48 md:h-48 rounded-full flex items-center justify-center transition-all transform active:scale-95 border-4 ${
+            isListening
+              ? 'bg-gradient-to-tr from-rose-600 to-red-500 text-white shadow-glow-rose border-rose-300'
+              : 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white shadow-glow-blue border-blue-200 dark:border-blue-500/30'
           }`}
         >
-          {isListening ? <MicOff className="w-16 h-16" /> : <Mic className="w-16 h-16" />}
+          {isListening ? <MicOff className="w-16 h-16 animate-pulse" /> : <Mic className="w-16 h-16" />}
         </button>
       </div>
 
-      <p className="text-xl font-bold text-blue-700">
-        {isListening
-          ? 'ĐANG LẮNG NGHE BÁC NÓI...'
-          : isLoading
-          ? 'ĐANG TẠO GIỌNG ĐỌC...'
-          : isPlayingVoice
-          ? 'TRỢ LÝ ĐANG NÓI...'
-          : 'BẤM MICRO ĐỂ NÓI'}
-      </p>
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-xl md:text-2xl font-display font-black text-blue-900 dark:text-blue-300 tracking-tight">
+          {isListening
+            ? 'ĐANG LẮNG NGHE BÁC NÓI...'
+            : isLoading
+            ? 'ĐANG TẠO GIỌNG ĐỌC AI...'
+            : isPlayingVoice
+            ? 'TRỢ LÝ ĐANG TRẢ LỜI...'
+            : 'BẤM MICRO ĐỂ NÓI'}
+        </p>
+        <AudioEqualizer isSpeaking={isPlayingVoice} />
+      </div>
 
       {/* Hiển thị câu nói của người già */}
       {transcript && (
-        <div className="w-full bg-blue-50 border-2 border-blue-200 rounded-3xl p-5 text-center">
-          <p className="text-sm font-bold text-blue-600 uppercase">Bác vừa nói:</p>
-          <p className="text-2xl font-bold text-blue-900 mt-1">"{transcript}"</p>
+        <div className="w-full bg-blue-50/90 dark:bg-slate-900/90 border-2 border-blue-200 dark:border-blue-900/60 rounded-3xl p-5 text-center shadow-sm">
+          <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Bác vừa nói:</p>
+          <p className="text-2xl font-display font-bold text-blue-950 dark:text-blue-100 mt-1">"{transcript}"</p>
         </div>
       )}
 
       {/* Câu trả lời của AI cùng nút Nghe lại */}
-      <div className="w-full bg-white border border-slate-200 shadow-md rounded-3xl p-6 text-center">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-          <p className="text-sm font-bold text-slate-400 uppercase flex items-center gap-1.5">
-            <Volume2 className="w-4 h-4 text-blue-600" /> Trợ lý phản hồi:
+      <div className="w-full glass-card border border-slate-200 dark:border-slate-800 shadow-lg rounded-3xl p-6 text-center space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Volume2 className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Trợ lý MediGuard AI phản hồi:
           </p>
           <button
             onClick={handleReplayCurrent}
             disabled={isLoading || isPlayingVoice}
-            className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-sm rounded-xl border border-blue-200 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold text-sm rounded-xl border border-blue-200 dark:border-slate-700 transition-all active:scale-95 disabled:opacity-50"
             title="Bác bấm vào đây để nghe lại lời trợ lý nói"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Nghe Lại</span>
           </button>
         </div>
-        <p className="text-2xl md:text-3xl font-extrabold text-slate-800">{reply}</p>
+        <p className="text-2xl md:text-3xl font-display font-extrabold text-slate-800 dark:text-white leading-snug">{reply}</p>
       </div>
 
-      {/* CÁC CÂU MẪU ĐỂ TEST GIỌNG NÓI NHANH */}
-      <div className="w-full bg-slate-50 p-5 rounded-3xl border border-slate-200 text-left">
-        <p className="text-sm font-bold text-slate-500 uppercase flex items-center gap-1 mb-3">
-          <Sparkles className="w-4 h-4 text-amber-500" /> Bác bấm vào câu hỏi mẫu để nghe AI trả lời bằng giọng nói:
+      {/* CÁC CÂU MẪU ĐỂ BÁC TRÒ CHUYỆN HOẶC KIỂM THỬ NHANH */}
+      <div className="w-full bg-slate-50 dark:bg-slate-900/80 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 text-left">
+        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5 mb-3">
+          <Sparkles className="w-4 h-4 text-amber-500" /> Bác bấm vào câu hỏi mẫu để nghe cháu trả lời bằng giọng nói:
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           <button
             onClick={() => {
-              setTranscript("Bác uống thuốc cữ sáng rồi nhé");
-              handleSpeechProcessing("Bác uống thuốc cữ sáng rồi nhé");
+              setTranscript("Dạ cháu ơi, Bác uống thuốc cữ sáng rồi nhé");
+              handleSpeechProcessing("Dạ cháu ơi, Bác uống thuốc cữ sáng rồi nhé");
             }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-emerald-50 border border-slate-200 text-emerald-900 font-semibold text-base transition-colors flex items-center justify-between"
+            className="text-left p-3.5 rounded-2xl bg-white hover:bg-emerald-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-emerald-950 dark:text-emerald-300 font-semibold text-base transition-colors flex items-center justify-between"
           >
-            <span>👉 "Bác uống thuốc cữ sáng rồi nhé"</span>
-            <span className="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold">Báo uống xong</span>
+            <span>👉 "Dạ cháu ơi, Bác uống thuốc cữ sáng rồi nhé"</span>
+            <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-full font-bold">Báo uống xong</span>
           </button>
 
           <button
             onClick={() => {
-              setTranscript("Hôm nay bác cần uống những thuốc gì?");
-              handleSpeechProcessing("Hôm nay bác cần uống những thuốc gì?");
+              setTranscript("Hôm nay Bác cần uống những thuốc gì hả cháu?");
+              handleSpeechProcessing("Hôm nay Bác cần uống những thuốc gì hả cháu?");
             }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-blue-50 border border-slate-200 text-blue-900 font-semibold text-base transition-colors flex items-center justify-between"
+            className="text-left p-3.5 rounded-2xl bg-white hover:bg-blue-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-blue-950 dark:text-blue-300 font-semibold text-base transition-colors flex items-center justify-between"
           >
-            <span>👉 "Hôm nay bác cần uống những thuốc gì?"</span>
-            <span className="text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-bold">Hỏi đơn thuốc</span>
+            <span>👉 "Hôm nay Bác cần uống những thuốc gì hả cháu?"</span>
+            <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2.5 py-1 rounded-full font-bold">Hỏi đơn thuốc</span>
           </button>
 
           <button
             onClick={() => {
-              setTranscript("Sáng nay bác quên, trưa bác uống bù gấp đôi được không?");
-              handleSpeechProcessing("Sáng nay bác quên, trưa bác uống bù gấp đôi được không?");
+              setTranscript("Sáng nay Bác quên, trưa Bác uống bù gấp đôi được không cháu?");
+              handleSpeechProcessing("Sáng nay Bác quên, trưa Bác uống bù gấp đôi được không cháu?");
             }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-rose-50 border border-slate-200 text-rose-800 font-semibold text-base transition-colors flex items-center justify-between"
+            className="text-left p-3.5 rounded-2xl bg-white hover:bg-rose-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-rose-950 dark:text-rose-300 font-semibold text-base transition-colors flex items-center justify-between"
           >
-            <span>👉 "Sáng nay bác quên, trưa bác uống bù gấp đôi được không?"</span>
-            <span className="text-xs bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full font-bold">Quy tắc an toàn</span>
+            <span>👉 "Sáng nay Bác quên, trưa Bác uống bù gấp đôi được không cháu?"</span>
+            <span className="text-xs bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300 px-2.5 py-1 rounded-full font-bold">Quy tắc an toàn</span>
           </button>
 
           <button
             onClick={() => {
-              setTranscript("Bác thấy chóng mặt quá cháu ơi");
-              handleSpeechProcessing("Bác thấy chóng mặt quá cháu ơi");
+              setTranscript("Cháu ơi, Bác thấy hơi chóng mặt và mệt trong người");
+              handleSpeechProcessing("Cháu ơi, Bác thấy hơi chóng mặt và mệt trong người");
             }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-amber-50 border border-slate-200 text-amber-900 font-semibold text-base transition-colors flex items-center justify-between"
+            className="text-left p-3.5 rounded-2xl bg-white hover:bg-amber-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-amber-950 dark:text-amber-300 font-semibold text-base transition-colors flex items-center justify-between"
           >
-            <span>👉 "Bác thấy chóng mặt quá cháu ơi"</span>
-            <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-bold">Cảnh báo khẩn</span>
+            <span>👉 "Cháu ơi, Bác thấy hơi chóng mặt và mệt trong người"</span>
+            <span className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300 px-2.5 py-1 rounded-full font-bold">Cảnh báo khẩn</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setTranscript("Thuốc này Bác nên uống trước ăn hay sau khi ăn hả cháu?");
+              handleSpeechProcessing("Thuốc này Bác nên uống trước ăn hay sau khi ăn hả cháu?");
+            }}
+            className="text-left p-3.5 rounded-2xl bg-white hover:bg-purple-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-purple-950 dark:text-purple-300 font-semibold text-base transition-colors flex items-center justify-between"
+          >
+            <span>👉 "Thuốc này Bác nên uống trước ăn hay sau khi ăn hả cháu?"</span>
+            <span className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-900 dark:text-purple-300 px-2.5 py-1 rounded-full font-bold">Hướng dẫn uống</span>
           </button>
         </div>
       </div>

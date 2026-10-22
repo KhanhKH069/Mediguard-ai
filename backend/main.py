@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.config import STORAGE_DIR
+from app.config import STORAGE_DIR, REF_IMAGES_DIR
 from app.database import engine, Base, SessionLocal
 from app.models import User, Medication, Schedule
 from app.core.security import get_password_hash
@@ -38,6 +38,9 @@ from app.api import (
     vision_router,
     devices_router,
     voice_router,
+    websocket_router,
+    ws_manager,
+    set_main_loop,
 )
 
 # ----------------------------------------------------------------------
@@ -82,6 +85,9 @@ def seed_sample_data():
 
     db = SessionLocal()
     try:
+        ref_amlodipine = REF_IMAGES_DIR / "ref_amlodipine.jpg"
+        ref_path_str = "ref_amlodipine.jpg" if ref_amlodipine.exists() else None
+
         if db.query(User).count() == 0:
             # Mật khẩu demo có thể đổi qua biến môi trường
             demo_password = os.getenv("DEMO_PASSWORD", "123456")
@@ -117,6 +123,7 @@ def seed_sample_data():
                 dosage="1 viên",
                 instruction="Uống sau khi ăn sáng 30 phút với nước ấm",
                 time_period="Sáng",
+                reference_image=ref_path_str,
             )
             med2 = Medication(
                 elder_id=elder.id,
@@ -155,6 +162,13 @@ def seed_sample_data():
             db.add_all([sch_morning, sch_evening])
             db.commit()
             logger.info(">>> Đã nạp thành công dữ liệu mẫu cho MediGuard AI!")
+        else:
+            # Nếu DB đã có dữ liệu nhưng med1 chưa có reference_image, tự động gán ảnh mẫu
+            existing_med1 = db.query(Medication).filter(Medication.name.like("%Amlodipine%")).first()
+            if existing_med1 and not existing_med1.reference_image and ref_path_str:
+                existing_med1.reference_image = ref_path_str
+                db.commit()
+                logger.info(">>> Đã cập nhật ảnh mẫu tham chiếu cho Amlodipine 5mg.")
     except Exception:
         db.rollback()
         logger.exception("Lỗi khi nạp dữ liệu mẫu")
@@ -251,6 +265,12 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     seed_sample_data()
 
+    # Thiết lập main event loop cho module websocket để broadcast đồng bộ tức thời
+    try:
+        set_main_loop(asyncio.get_running_loop())
+    except Exception as e:
+        logger.warning(f"Không thể thiết lập main loop cho websocket: {e}")
+
     # Bật scheduler giám sát quá hạn
     start_scheduler()
 
@@ -271,7 +291,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MediGuard AI - Medication Management Assistant",
     description="Trợ lý AI hỗ trợ quản lý lịch dùng thuốc tại nhà cho người cao tuổi",
-    version="1.0.0",
+    version="1.0.0-maxping",
     lifespan=lifespan,
 )
 
@@ -300,6 +320,47 @@ app.include_router(logs_router)
 app.include_router(vision_router)
 app.include_router(devices_router)
 app.include_router(voice_router)
+app.include_router(websocket_router)
+
+
+@app.get("/api/ping")
+def ping_instant():
+    """
+    Endpoint phản hồi tức thời (sub-millisecond) để đo ping RTT thực tế
+    """
+    import time
+    return {
+        "status": "ok",
+        "pong": True,
+        "mode": "maxping",
+        "timestamp": time.time(),
+        "active_ws_clients": len(ws_manager.active_connections),
+    }
+
+
+@app.get("/api/health")
+def health_check():
+    import time
+    from sqlalchemy import text
+    start = time.perf_counter()
+    db = SessionLocal()
+    db_ok = False
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+    finally:
+        db.close()
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    return {
+        "status": "healthy" if db_ok else "degraded",
+        "ping_ms": duration_ms,
+        "database": "connected" if db_ok else "disconnected",
+        "active_ws_clients": len(ws_manager.active_connections),
+        "version": "1.0.0-maxping-ultra",
+        "service": "MediGuard AI Engine",
+    }
 
 
 @app.get("/")

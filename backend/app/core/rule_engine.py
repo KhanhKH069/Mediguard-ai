@@ -22,10 +22,12 @@ SYMPTOM_PATTERNS = [
     ("chóng mặt", "Bác đang cảm thấy chóng mặt, hoa mắt"),
     ("đau bụng", "Bác đang có triệu chứng đau bụng"),
     ("buồn nôn", "Bác đang có triệu chứng buồn nôn"),
-    ("khó thở", "Bác đang có triệu chứng khó thở, mệt mỏi"),
+    ("khó thở", "Bác đang cảm thấy khó thở, mệt mỏi"),
     ("uống nhầm", "Bác báo có thể đã uống nhầm thuốc"),
     ("mệt quá", "Bác đang cảm thấy rất mệt trong người"),
-    ("tức ngực", "Bác đang cảm thấy tức ngực khó chịu")
+    ("mệt trong người", "Bác đang cảm thấy mệt mỏi trong người"),
+    ("tức ngực", "Bác đang cảm thấy tức ngực khó chịu"),
+    ("tim đập nhanh", "Bác cảm thấy hồi hộp, tim đập nhanh")
 ]
 
 def evaluate_safety_and_intent(user_text: str) -> dict:
@@ -44,8 +46,8 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
                 "warning_reason": reason,
                 "action": "REJECT_AND_NOTIFY_CAREGIVER",
                 "reply_speech": (
-                    f"Bác ơi, bác tuyệt đối đừng tự ý thay đổi thuốc nhé. {reason} "
-                    f"Cháu đang gửi thông báo cho người nhà để kiểm tra và gọi điện hỗ trợ bác ngay đây ạ!"
+                    f"Dạ thưa Bác, Bác tuyệt đối đừng tự ý thay đổi liều lượng thuốc nhé ạ. {reason} "
+                    f"Cháu đang gửi thông báo cho người nhà để kiểm tra và gọi điện hỗ trợ Bác ngay đây ạ!"
                 )
             }
 
@@ -59,15 +61,16 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
                 "warning_reason": desc,
                 "action": "EMERGENCY_ALERT",
                 "reply_speech": (
-                    f"Cháu đã ghi nhận {desc}. Bác vui lòng ngồi nghỉ ngơi tại chỗ và giữ bình tĩnh nhé, "
-                    f"cháu đang báo ngay cho gia đình để liên hệ với bác ạ!"
+                    f"Dạ thưa Bác, cháu đã ghi nhận {desc}. Bác vui lòng ngồi nghỉ ngơi tại chỗ và giữ bình tĩnh nhé ạ, "
+                    f"cháu đang báo ngay cho gia đình để liên hệ với Bác ạ!"
                 )
             }
 
     # 3. Phân loại ý định xác nhận uống thuốc (CONFIRM_INTAKE)
     intake_keywords = [
         "uống rồi", "đã uống", "uống xong", "đã nghe", "nghe rồi", 
-        "uống thuốc rồi", "nghe nhắc", "uống cữ", "uống hết", "uống thuốc cữ"
+        "uống thuốc rồi", "nghe nhắc", "uống cữ", "uống hết", "uống thuốc cữ",
+        "bác uống rồi", "tôi uống rồi", "xong cữ", "bác đã uống", "cháu ơi bác uống"
     ]
     is_intake = (
         any(k in text_clean for k in intake_keywords) or
@@ -81,9 +84,9 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
             "warning_reason": None,
             "action": "RECORD_INTAKE",
             "reply_speech": (
-                "Cháu đã ghi nhận bác vừa uống thuốc xong rồi ạ! "
-                "Cháu đã cập nhật nhật ký và gửi thông báo cho người thân. "
-                "Bác nhớ uống đủ nước ấm và nghỉ ngơi thật thoải mái nhé!"
+                "Dạ thưa Bác, cháu đã ghi nhận Bác vừa uống thuốc xong rồi ạ! "
+                "Cháu đã cập nhật nhật ký và gửi thông báo an tâm cho con cháu trong gia đình. "
+                "Bác nhớ uống đủ nước ấm và nghỉ ngơi thật thoải mái nhé ạ!"
             )
         }
 
@@ -96,8 +99,8 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
             "warning_reason": None,
             "action": "READ_SCHEDULE",
             "reply_speech": (
-                "Dạ, theo đơn thuốc đã được gia đình xác minh, cữ sáng nay bác có thuốc huyết áp Amlodipine 5mg "
-                "và thuốc bổ não Ginkgo Biloba 120mg, uống sau bữa ăn sáng với nước ấm bác nhé!"
+                "Dạ thưa Bác, theo đơn thuốc đã được gia đình xác minh, cữ sáng nay Bác có thuốc huyết áp Amlodipine 5mg "
+                "và thuốc bổ não Ginkgo Biloba 120mg, uống sau bữa ăn sáng với nước ấm Bác nhé ạ!"
             )
         }
 
@@ -110,8 +113,8 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
             "warning_reason": None,
             "action": "PROMPT_CAREGIVER_CHECK",
             "reply_speech": (
-                "Bác đừng lo lắng nhé. Nếu chưa chắc chắn, bác cứ để nguyên vỉ thuốc ở đó, "
-                "cháu sẽ báo cho người nhà kiểm tra lại giúp bác ngay ạ."
+                "Dạ Bác đừng lo lắng nhé ạ. Nếu chưa chắc chắn, Bác cứ để nguyên vỉ thuốc tại khay, "
+                "cháu sẽ báo cho người nhà kiểm tra lại giúp Bác ngay ạ."
             )
         }
 
@@ -123,7 +126,7 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
             "pattern_matched": None,
             "warning_reason": None,
             "action": "TRIGGER_HELP_ALERT",
-            "reply_speech": "Dạ, cháu đã gửi thông báo yêu cầu trợ giúp khẩn cấp đến gia đình của bác rồi ạ."
+            "reply_speech": "Dạ thưa Bác, cháu đã gửi thông báo yêu cầu trợ giúp khẩn cấp đến gia đình và con cháu của Bác rồi ạ."
         }
 
     # Mặc định: Giao tiếp bình thường
@@ -133,5 +136,5 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
         "pattern_matched": None,
         "warning_reason": None,
         "action": "SAFE_GENERAL_REPLY",
-        "reply_speech": "Dạ cháu nghe đây ạ! Bác có muốn cháu đọc lại lịch uống thuốc hay cần cháu giúp gì không ạ?"
+        "reply_speech": "Dạ cháu nghe đây ạ! Bác có muốn cháu đọc lại lịch uống thuốc hay cần cháu giúp gì thêm không ạ?"
     }

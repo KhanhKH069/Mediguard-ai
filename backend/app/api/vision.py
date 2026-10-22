@@ -5,10 +5,11 @@ import shutil
 import uuid
 from datetime import datetime
 from app.database import get_db
-from app.config import CAPTURED_IMAGES_DIR
+from app.config import CAPTURED_IMAGES_DIR, REF_IMAGES_DIR
 from app.models.medication import Medication
 from app.models.interaction_log import InteractionLog
 from app.vision.matcher import match_medication_images
+from app.api.websocket import broadcast_sync
 
 router = APIRouter(prefix="/api/vision", tags=["Vision"])
 
@@ -38,7 +39,15 @@ async def verify_pill_image(
     with open(dest_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    ref_path = Path(med.reference_image) if med.reference_image else None
+    ref_path = None
+    if med.reference_image:
+        candidate = Path(med.reference_image)
+        if candidate.is_absolute() and candidate.exists():
+            ref_path = candidate
+        elif (REF_IMAGES_DIR / med.reference_image).exists():
+            ref_path = REF_IMAGES_DIR / med.reference_image
+        elif (REF_IMAGES_DIR / candidate.name).exists():
+            ref_path = REF_IMAGES_DIR / candidate.name
 
     # Tiến hành đối chiếu hình ảnh
     result = match_medication_images(dest_path, ref_path)
@@ -55,6 +64,15 @@ async def verify_pill_image(
     )
     db.add(log)
     db.commit()
+
+    broadcast_sync("device_recorded", {
+        "schedule_id": schedule_id,
+        "medication_id": medication_id,
+        "medication_name": med.name,
+        "cv_status": result["cv_status"],
+        "confidence_score": result["score"],
+        "timestamp": log.timestamp.isoformat()
+    })
 
     return {
         "success": True,

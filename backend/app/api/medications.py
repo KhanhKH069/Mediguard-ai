@@ -23,6 +23,18 @@ def create_medication(med: MedicationCreate, db: Session = Depends(get_db)):
     db.add(db_med)
     db.commit()
     db.refresh(db_med)
+    
+    # Phát sự kiện cập nhật tức thời qua WebSocket
+    try:
+        from app.api.websocket import broadcast_sync
+        broadcast_sync("schedule_updated", {
+            "action": "medication_created",
+            "med_id": db_med.id,
+            "elder_id": db_med.elder_id
+        })
+    except Exception:
+        pass
+
     return db_med
 
 @router.post("/{med_id}/upload-reference-image")
@@ -48,6 +60,21 @@ def delete_medication(med_id: int, db: Session = Depends(get_db)):
     med = db.query(Medication).filter(Medication.id == med_id).first()
     if not med:
         raise HTTPException(status_code=404, detail="Không tìm thấy thuốc")
+    
+    elder_id = med.elder_id
     med.is_active = False
     db.commit()
-    return {"message": "Đã ẩn thuốc thành công"}
+
+    # Phát sự kiện đồng bộ thời gian thực để các màn hình tự động làm mới
+    try:
+        from app.api.websocket import broadcast_sync
+        broadcast_sync("schedule_updated", {
+            "action": "medication_deleted",
+            "med_id": med_id,
+            "elder_id": elder_id
+        })
+    except Exception:
+        pass
+
+    return {"message": "Đã xóa thuốc khỏi danh mục thành công", "id": med_id}
+

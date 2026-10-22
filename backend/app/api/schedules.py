@@ -14,6 +14,7 @@ from app.voice.tts_service import (
     generate_help_speech
 )
 from app.core.notifier import send_telegram_alert
+from app.api.websocket import broadcast_sync
 
 router = APIRouter(prefix="/api/schedules", tags=["Schedules"])
 
@@ -105,6 +106,7 @@ def create_schedule(sch_in: ScheduleCreate, db: Session = Depends(get_db)):
     db.add(db_sch)
     db.commit()
     db.refresh(db_sch)
+    broadcast_sync("schedule_updated", {"schedule_id": db_sch.id, "action": "created"})
     return db_sch
 
 @router.post("/{schedule_id}/remind")
@@ -137,6 +139,8 @@ async def trigger_schedule_reminder(schedule_id: int, db: Session = Depends(get_
     )
     db.add(log_entry)
     db.commit()
+
+    broadcast_sync("reminder_sent", {"schedule_id": sch.id, "time_period": sch.time_period})
 
     return {
         "success": True,
@@ -182,6 +186,14 @@ async def elder_respond(schedule_id: int, req: ElderRespondRequest, db: Session 
         db.add(log1)
         db.commit()
 
+        broadcast_sync("elder_responded", {
+            "schedule_id": sch.id,
+            "response_type": "HEARD",
+            "time_period": sch.time_period,
+            "medications": med_names,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+
         return {
             "success": True,
             "status": "HEARD_CONFIRMED",
@@ -203,6 +215,13 @@ async def elder_respond(schedule_id: int, req: ElderRespondRequest, db: Session 
         )
         db.add(log)
         db.commit()
+
+        broadcast_sync("elder_responded", {
+            "schedule_id": sch.id,
+            "response_type": "UNSURE",
+            "time_period": sch.time_period,
+            "timestamp": datetime.utcnow().isoformat()
+        })
 
         # Báo Telegram cho người nhà
         await send_telegram_alert(
@@ -230,6 +249,13 @@ async def elder_respond(schedule_id: int, req: ElderRespondRequest, db: Session 
         )
         db.add(log)
         db.commit()
+
+        broadcast_sync("emergency_alert", {
+            "schedule_id": sch.id,
+            "response_type": "HELP",
+            "time_period": sch.time_period,
+            "timestamp": datetime.utcnow().isoformat()
+        })
 
         # Báo động đỏ Telegram
         await send_telegram_alert(
