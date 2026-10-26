@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pill, Upload, Trash2, CheckCircle2, AlertTriangle, X, ShieldAlert, Sparkles } from 'lucide-react';
-import { fetchMedications, deleteMedication, connectRealtimeUpdates, createMedication, uploadMedicationImage, getMediaUrl } from '../../services/api';
+import { Plus, Pill, Upload, Trash2, CheckCircle2, AlertTriangle, X, ShieldAlert, Sparkles, ShieldCheck, ArrowRight, Activity, Search } from 'lucide-react';
+import { fetchMedications, deleteMedication, connectRealtimeUpdates, createMedication, uploadMedicationImage, getMediaUrl, checkDrugInteractions } from '../../services/api';
 
 export default function MedicationList({ elderId = 1, currentUser = null }) {
   const [medications, setMedications] = useState([]);
@@ -17,6 +17,14 @@ export default function MedicationList({ elderId = 1, currentUser = null }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState(null);
 
+  // Trạng thái kiểm tra tương tác thuốc
+  const [interactionResult, setInteractionResult] = useState(null);
+  const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
+  const [isInteractionModalOpen, setIsInteractionModalOpen] = useState(false);
+  const [sandboxDrugInput, setSandboxDrugInput] = useState('');
+  const [sandboxResult, setSandboxResult] = useState(null);
+  const [isSimulatingSandbox, setIsSimulatingSandbox] = useState(false);
+
   const activeElderId = elderId || (currentUser?.role === 'ELDER' ? currentUser.user_id : 1);
 
   const loadMeds = async () => {
@@ -24,6 +32,14 @@ export default function MedicationList({ elderId = 1, currentUser = null }) {
       setLoading(true);
       const data = await fetchMedications(activeElderId);
       setMedications(data || []);
+      // Tự động kiểm tra tương tác thuốc nếu có từ 2 thuốc trở lên
+      if (data && data.length > 1) {
+        checkDrugInteractions(activeElderId)
+          .then((res) => setInteractionResult(res))
+          .catch((err) => console.warn('Lỗi kiểm tra tương tác thuốc:', err));
+      } else {
+        setInteractionResult(null);
+      }
     } catch (err) {
       console.error('Lỗi tải danh mục thuốc:', err);
     } finally {
@@ -99,6 +115,36 @@ export default function MedicationList({ elderId = 1, currentUser = null }) {
     }
   };
 
+  const handleOpenInteractionModal = async () => {
+    setIsCheckingInteractions(true);
+    try {
+      const res = await checkDrugInteractions(activeElderId);
+      setInteractionResult(res);
+      setSandboxResult(null);
+      setIsInteractionModalOpen(true);
+    } catch (err) {
+      alert('Lỗi kiểm tra tương tác thuốc: ' + err.message);
+    } finally {
+      setIsCheckingInteractions(false);
+    }
+  };
+
+  const handleSimulateSandbox = async (e) => {
+    e.preventDefault();
+    if (!sandboxDrugInput.trim()) return;
+    setIsSimulatingSandbox(true);
+    try {
+      const currentList = medications.map((m) => m.name);
+      const combined = [...currentList, sandboxDrugInput.trim()];
+      const res = await checkDrugInteractions(null, combined);
+      setSandboxResult(res);
+    } catch (err) {
+      alert('Lỗi mô phỏng tương tác: ' + err.message);
+    } finally {
+      setIsSimulatingSandbox(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Thông báo phản hồi thao tác */}
@@ -114,6 +160,74 @@ export default function MedicationList({ elderId = 1, currentUser = null }) {
           </div>
           <button onClick={() => setStatusFeedback(null)} className="p-1 hover:opacity-75">
             <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Banner Cảnh Báo Tương Tác Thuốc AI (Drug-Drug Interaction Checker) */}
+      {medications.length > 1 && (
+        <div className={`p-5 md:p-6 rounded-3xl border transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+          interactionResult?.severity_level === 'HIGH'
+            ? 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 text-rose-950 dark:text-rose-200'
+            : interactionResult?.severity_level === 'MODERATE'
+            ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900/60 text-amber-950 dark:text-amber-200'
+            : 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-900/60 text-emerald-950 dark:text-emerald-200'
+        }`}>
+          <div className="flex items-start gap-3.5">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+              interactionResult?.severity_level === 'HIGH'
+                ? 'bg-rose-600 text-white animate-pulse'
+                : interactionResult?.severity_level === 'MODERATE'
+                ? 'bg-amber-500 text-white'
+                : 'bg-emerald-600 text-white'
+            }`}>
+              {interactionResult?.severity_level === 'HIGH' ? (
+                <ShieldAlert className="w-6 h-6 stroke-[2.5]" />
+              ) : interactionResult?.severity_level === 'MODERATE' ? (
+                <AlertTriangle className="w-6 h-6 stroke-[2.5]" />
+              ) : (
+                <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 font-mono">
+                  AI DRUG-INTERACTION CHECKER
+                </span>
+                {interactionResult?.severity_level === 'HIGH' && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900/70 text-rose-800 dark:text-rose-200">
+                    Mức độ: NGUY HIỂM CAO
+                  </span>
+                )}
+                {interactionResult?.severity_level === 'MODERATE' && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200">
+                    Mức độ: CẦN CHÚ Ý
+                  </span>
+                )}
+              </div>
+              <h4 className="text-base sm:text-lg font-display font-black tracking-tight mt-1">
+                {interactionResult ? interactionResult.summary_message : 'Đang quét phân tích tương tác lâm sàng...'}
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
+                Quét tự động toàn bộ {medications.length} loại thuốc đang có trong hồ sơ của Bác.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpenInteractionModal}
+            disabled={isCheckingInteractions}
+            className={`px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 transition-all shadow-md active:scale-95 cursor-pointer ${
+              interactionResult?.severity_level === 'HIGH'
+                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                : interactionResult?.severity_level === 'MODERATE'
+                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/30'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Xem Báo Cáo Lâm Sàng & Thử Nghiệm</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -386,6 +500,162 @@ export default function MedicationList({ elderId = 1, currentUser = null }) {
                     <span>Xác Nhận Xóa</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Báo Cáo Lâm Sàng & Thử Nghiệm Tương Tác Thuốc AI */}
+      {isInteractionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl relative border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 my-8">
+            <button
+              onClick={() => setIsInteractionModalOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 ${
+                interactionResult?.severity_level === 'HIGH' ? 'bg-rose-600 shadow-rose-600/30' : 'bg-blue-600'
+              }`}>
+                <ShieldAlert className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="text-xl md:text-2xl font-display font-black text-slate-900 dark:text-white">
+                  Báo Cáo Tương Tác Thuốc Lâm Sàng
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Hệ thống AI đối chiếu tự động dữ liệu dược thư y tế cho người cao tuổi
+                </p>
+              </div>
+            </div>
+
+            {/* Danh sách các thuốc đã rà soát */}
+            <div className="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">
+                Các thuốc đã đưa vào ma trận rà soát:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {medications.map((m) => (
+                  <span
+                    key={m.id}
+                    className="px-3 py-1 rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Pill className="w-3.5 h-3.5 text-blue-500" />
+                    <span>{m.name}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Kết quả tương tác */}
+            {interactionResult?.detected_interactions && interactionResult.detected_interactions.length > 0 ? (
+              <div className="space-y-4 mb-6 max-h-72 overflow-y-auto pr-1">
+                {interactionResult.detected_interactions.map((inter, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-2xl border ${
+                      inter.severity === 'HIGH'
+                        ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60'
+                        : 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <span className="px-2.5 py-0.5 rounded-lg bg-white/80 dark:bg-slate-800 border border-black/10 dark:border-white/10 font-mono text-xs">
+                          {inter.drug_a}
+                        </span>
+                        <span className="text-rose-500 font-extrabold">⚡</span>
+                        <span className="px-2.5 py-0.5 rounded-lg bg-white/80 dark:bg-slate-800 border border-black/10 dark:border-white/10 font-mono text-xs">
+                          {inter.drug_b}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        inter.severity === 'HIGH'
+                          ? 'bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200'
+                          : 'bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200'
+                      }`}>
+                        {inter.severity === 'HIGH' ? '🔴 Nguy hiểm' : '🟡 Cần chú ý'}
+                      </span>
+                    </div>
+
+                    <h5 className="font-extrabold text-sm text-slate-900 dark:text-white mb-1">
+                      {inter.title}
+                    </h5>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">
+                      <b>Cơ chế:</b> {inter.mechanism}
+                    </p>
+                    <div className="p-2.5 rounded-xl bg-white/70 dark:bg-slate-800/80 border border-black/5 dark:border-white/5 text-xs text-slate-800 dark:text-slate-200 font-medium">
+                      <span className="font-bold text-blue-600 dark:text-blue-400">Khuyến cáo: </span>
+                      {inter.clinical_advice}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center mb-6">
+                <CheckCircle2 className="w-10 h-10 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
+                <h4 className="font-bold text-emerald-900 dark:text-emerald-200">
+                  Đơn thuốc an toàn
+                </h4>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+                  Không tìm thấy tương tác chéo nguy hại giữa các thuốc hiện đang có trong hồ sơ của Bác.
+                </p>
+              </div>
+            )}
+
+            {/* Sandbox mô phỏng thêm thuốc mới */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide block mb-2 flex items-center gap-1.5">
+                <Search className="w-3.5 h-3.5 text-blue-500" />
+                <span>Mô Phỏng Thêm Thuốc Mới Trước Khi Kê Đơn:</span>
+              </span>
+              <form onSubmit={handleSimulateSandbox} className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  placeholder="Nhập tên thuốc muốn thử (ví dụ: Aspirin 81mg, Ibuprofen, Warfarin)..."
+                  value={sandboxDrugInput}
+                  onChange={(e) => setSandboxDrugInput(e.target.value)}
+                  className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={isSimulatingSandbox || !sandboxDrugInput.trim()}
+                  className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{isSimulatingSandbox ? 'Đang quét...' : 'Thử Tương Tác'}</span>
+                </button>
+              </form>
+
+              {sandboxResult && (
+                <div className={`p-3.5 rounded-2xl border text-xs ${
+                  sandboxResult.has_interaction
+                    ? sandboxResult.severity_level === 'HIGH'
+                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+                      : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                    : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                }`}>
+                  <p className="font-bold">{sandboxResult.summary_message}</p>
+                  {sandboxResult.detected_interactions?.map((it, idx) => (
+                    <div key={idx} className="mt-2 pt-2 border-t border-black/10 dark:border-white/10">
+                      <b>{it.drug_a} ⚡ {it.drug_b}:</b> {it.title} - {it.clinical_advice}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 text-right">
+              <button
+                type="button"
+                onClick={() => setIsInteractionModalOpen(false)}
+                className="px-6 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs sm:text-sm transition-all"
+              >
+                Đóng Báo Cáo
               </button>
             </div>
           </div>

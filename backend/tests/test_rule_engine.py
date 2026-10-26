@@ -51,3 +51,13 @@ def test_allow_normal_confirmation():
         res = evaluate_safety_and_intent(sentence)
         assert res["is_safe"] is True
         assert res["intent"] == "CONFIRM_INTAKE"
+
+def test_detect_drug_interaction_inquiry():
+    """
+    Kiểm thử: Phát hiện câu hỏi uống chung thuốc có tương tác nguy hiểm.
+    """
+    res = evaluate_safety_and_intent("Bác uống Ginkgo Biloba chung với Aspirin được không cháu?")
+    assert res["intent"] == "DRUG_INTERACTION_WARNING"
+    assert res["is_safe"] is False
+    assert "xuất huyết" in res["reply_speech"].lower()
+

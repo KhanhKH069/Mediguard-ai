@@ -11,7 +11,6 @@ Nhiệm vụ sống còn:
 FORBIDDEN_PATTERNS = [
     ("uống bù", "Việc uống bù liều đã quên cần có chỉ định của bác sĩ hoặc sự đồng ý từ người nhà."),
     ("gấp đôi", "Tuyệt đối không tự ý uống gấp đôi liều thuốc vì có thể gây ngộ độc hoặc hạ huyết áp quá mức."),
-    ("uống gấp đôi", "Tuyệt đối không tự ý uống gấp đôi liều thuốc vì có thể gây ngộ độc hoặc hạ huyết áp quá mức."),
     ("tăng liều", "Người dùng không được tự ý tăng liều thuốc."),
     ("bỏ cữ", "Không nên tự ý bỏ cữ thuốc điều trị khi chưa hỏi ý kiến chuyên môn."),
     ("uống thêm", "Không được tự ý uống thêm thuốc ngoài đơn đã xác nhận.")
@@ -65,6 +64,31 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
                     f"cháu đang báo ngay cho gia đình để liên hệ với Bác ạ!"
                 )
             }
+
+    # 2.5. Kiểm tra ý định hỏi tương tác thuốc / uống chung nhiều loại thuốc
+    if any(k in text_clean for k in ["uống chung", "uống cùng", "uống kèm", "uống với nhau", "uống kết hợp", "chung với"]):
+        from app.core.drug_checker import check_drug_interactions, DRUG_SYNONYMS
+        mentioned_drugs = []
+        for drug_key, synonyms in DRUG_SYNONYMS.items():
+            if any(syn in text_clean for syn in synonyms):
+                mentioned_drugs.append(drug_key)
+
+        if len(mentioned_drugs) >= 2:
+            check_res = check_drug_interactions(mentioned_drugs)
+            if check_res.get("has_interaction"):
+                first_inter = check_res["detected_interactions"][0]
+                is_danger = check_res.get("severity_level") == "HIGH"
+                return {
+                    "is_safe": not is_danger,
+                    "intent": "DRUG_INTERACTION_WARNING",
+                    "pattern_matched": f"{first_inter['drug_a']} + {first_inter['drug_b']}",
+                    "warning_reason": first_inter["title"],
+                    "action": "REJECT_AND_NOTIFY_CAREGIVER" if is_danger else "WARN_INTERACTION",
+                    "reply_speech": (
+                        f"Dạ thưa Bác, hai loại thuốc này có tương tác bất lợi: {first_inter['title']}. "
+                        f"{first_inter['clinical_advice']} Bác không nên tự ý uống chung khi chưa có chỉ định của bác sĩ nhé ạ!"
+                    )
+                }
 
     # 3. Phân loại ý định xác nhận uống thuốc (CONFIRM_INTAKE)
     intake_keywords = [

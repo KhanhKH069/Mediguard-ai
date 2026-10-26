@@ -65,10 +65,17 @@ export default function ElderHome({ onOpenVoice, onOpenScan, currentUser = null 
   useEffect(() => {
     loadSchedules();
 
-    // Kết nối WebSocket để tự động đồng bộ thời gian thực khi Caregiver cập nhật
+    // Kết nối WebSocket để tự động đồng bộ thời gian thực khi Caregiver cập nhật hoặc có lời nhắc tự động
     const disconnect = connectRealtimeUpdates((msg) => {
       if (['schedule_updated', 'caregiver_confirmed'].includes(msg.type)) {
         loadSchedules();
+      } else if (msg.type === 'reminder_sent') {
+        loadSchedules();
+        playChimeSound();
+        if (msg.data?.speech_text || msg.data?.audio_url) {
+          setSpokenPrompt(msg.data.speech_text);
+          playVoiceSpeech(msg.data.audio_url, msg.data.speech_text).catch(() => {});
+        }
       }
     });
 

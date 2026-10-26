@@ -294,6 +294,14 @@ export default function PillScanner({ onBack }) {
 
           <p className="text-base md:text-lg font-semibold mt-2">{result.message}</p>
 
+          {/* Nhãn chữ OCR nhận diện */}
+          {result.ocr_text && (
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700 text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Nhãn chữ đọc được: <b>{result.ocr_text}</b></span>
+            </div>
+          )}
+
           {/* Thanh điểm tin cậy */}
           {result.confidence_score !== undefined && (
             <div className="mt-4 pt-3 border-t border-black/10 dark:border-white/10 flex items-center justify-center gap-3 text-xs font-bold">

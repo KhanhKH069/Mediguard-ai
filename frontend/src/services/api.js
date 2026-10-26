@@ -120,6 +120,23 @@ export async function createMedication(payload) {
   return await res.json();
 }
 
+export async function checkDrugInteractions(elderId = null, medicationNames = null) {
+  const payload = {};
+  if (elderId) payload.elder_id = elderId;
+  if (medicationNames && medicationNames.length > 0) payload.medication_names = medicationNames;
+
+  const res = await fetch(`${API_BASE}/api/medications/check-interactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Không thể kiểm tra tương tác thuốc');
+  }
+  return await res.json();
+}
+
 export async function uploadMedicationImage(medId, file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -205,11 +222,11 @@ export async function caregiverConfirm(scheduleId, caregiverId = 2, notes = '') 
   return res.json();
 }
 
-export async function processVoiceSpeech(userSpeech, voice = null, rate = null) {
+export async function processVoiceSpeech(userSpeech, voice = null, rate = null, elderId = null) {
   const res = await fetch(`${API_BASE}/api/voice/process`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_speech: userSpeech, voice, rate })
+    body: JSON.stringify({ user_speech: userSpeech, voice, rate, elder_id: elderId })
   });
   if (!res.ok) {
     const errorText = await res.text().catch(() => '');

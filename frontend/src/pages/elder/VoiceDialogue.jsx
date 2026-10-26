@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, ArrowLeft, Volume2, Sparkles, RotateCcw } from 'lucide-react';
 import { createSpeechRecognizer, playVoiceSpeech, unlockAllAudio } from '../../services/voiceService';
-import { processVoiceSpeech } from '../../services/api';
+import { processVoiceSpeech, getStoredUser } from '../../services/api';
 import { playChimeSound } from '../../utils/soundEffects';
 import AudioEqualizer from '../../components/AudioEqualizer';
 
@@ -139,7 +139,9 @@ export default function VoiceDialogue({ onBack }) {
     setReply('Dạ cháu đang suy nghĩ và chuẩn bị giọng nói...');
     try {
       // Gọi backend xử lý quy tắc an toàn & Edge-TTS tiếng Việt theo giọng đã chọn
-      const data = await processVoiceSpeech(userText.trim(), selectedVoice, voiceRate);
+      const storedUser = getStoredUser();
+      const elderId = storedUser?.role === 'ELDER' ? storedUser.user_id : null;
+      const data = await processVoiceSpeech(userText.trim(), selectedVoice, voiceRate, elderId);
       if (data && data.reply_speech) {
         setReply(data.reply_speech);
         setLastAudioUrl(data.audio_url || null);

@@ -49,8 +49,8 @@ async def verify_pill_image(
         elif (REF_IMAGES_DIR / candidate.name).exists():
             ref_path = REF_IMAGES_DIR / candidate.name
 
-    # Tiến hành đối chiếu hình ảnh
-    result = match_medication_images(dest_path, ref_path)
+    # Tiến hành đối chiếu hình ảnh kết hợp nhận diện nhãn chữ OCR
+    result = match_medication_images(dest_path, ref_path, expected_name=med.name)
 
     # Ghi nhận sự kiện device_recorded vào nhật ký kiểm toán
     log = InteractionLog(
@@ -59,7 +59,7 @@ async def verify_pill_image(
         event_type="device_recorded",
         device_action="CAMERA_SCAN",
         cv_status=result["cv_status"],
-        notes=f"CV Check ({med.name}): {result['message']} (Điểm: {result['score']})",
+        notes=f"CV & OCR Check ({med.name}): {result['message']} (Điểm: {result['score']})",
         timestamp=datetime.utcnow()
     )
     db.add(log)
@@ -71,6 +71,8 @@ async def verify_pill_image(
         "medication_name": med.name,
         "cv_status": result["cv_status"],
         "confidence_score": result["score"],
+        "ocr_matched": result.get("ocr_matched", False),
+        "ocr_text": result.get("ocr_text", ""),
         "timestamp": log.timestamp.isoformat()
     })
 
@@ -79,5 +81,8 @@ async def verify_pill_image(
         "cv_status": result["cv_status"],
         "confidence_score": result["score"],
         "message": result["message"],
+        "ocr_text": result.get("ocr_text", ""),
+        "ocr_matched": result.get("ocr_matched", False),
+        "matched_keywords": result.get("matched_keywords", []),
         "captured_image_url": f"/storage/captured_images/{filename}"
     }

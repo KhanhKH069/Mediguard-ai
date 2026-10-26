@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -6,6 +7,7 @@ import logging
 
 from app.database import get_db
 from app.models.schedule import Schedule
+from app.models.medication import Medication
 from app.models.interaction_log import InteractionLog
 from app.voice.tts_service import text_to_speech
 from app.config import DEFAULT_VIETNAMESE_VOICE, DEFAULT_VOICE_RATE
@@ -23,6 +25,7 @@ class SpeakRequest(BaseModel):
 
 class VoiceProcessRequest(BaseModel):
     user_speech: str
+    elder_id: Optional[int] = None
     voice: str | None = None
     rate: str | None = None
 
@@ -60,6 +63,35 @@ async def process_voice(req: VoiceProcessRequest, db: Session = Depends(get_db))
     
     voice = req.voice or DEFAULT_VIETNAMESE_VOICE
     rate = req.rate or DEFAULT_VOICE_RATE
+
+    # Xử lý động khi người dùng hỏi thuốc của cữ
+    if analysis.get("intent") == "INQUIRE_MEDICATION":
+        current_hour = datetime.now().hour
+        if 4 <= current_hour < 11:
+            period = "Sáng"
+        elif 11 <= current_hour < 15:
+            period = "Trưa"
+        elif 15 <= current_hour < 22:
+            period = "Tối"
+        else:
+            period = "Đêm"
+
+        elder_id = req.elder_id or 1
+        meds = db.query(Medication).filter(
+            Medication.elder_id == elder_id,
+            Medication.time_period == period,
+            Medication.is_active == True
+        ).all()
+
+        if meds:
+            med_list = [f"{m.name} ({m.dosage}, {m.instruction})" for m in meds]
+            reply_text = (
+                f"Dạ thưa Bác, theo đơn thuốc đã được gia đình xác minh, cữ {period.lower()} nay Bác có: "
+                f"{'; '.join(med_list)}. Bác nhớ uống kèm nước ấm nhé ạ!"
+            )
+        else:
+            reply_text = f"Dạ thưa Bác, trong cữ {period.lower()} này Bác không có loại thuốc nào cần uống theo đơn đã xác minh ạ."
+
     audio_file = await text_to_speech(reply_text, voice=voice, rate=rate)
 
     # Nếu người dùng báo uống thuốc thành công, tự động ghi nhận vào InteractionLog
