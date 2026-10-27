@@ -19,15 +19,30 @@ FORBIDDEN_PATTERNS = [
 
 SYMPTOM_PATTERNS = [
     ("đau đầu", "Bác đang cảm thấy đau đầu"),
+    ("nhức đầu", "Bác đang cảm thấy nhức đầu"),
     ("chóng mặt", "Bác đang cảm thấy chóng mặt, hoa mắt"),
+    ("hoa mắt", "Bác đang cảm thấy hoa mắt, chóng mặt"),
+    ("choáng váng", "Bác đang cảm thấy choáng váng"),
     ("đau bụng", "Bác đang có triệu chứng đau bụng"),
+    ("quặn bụng", "Bác đang có triệu chứng đau quặn bụng"),
     ("buồn nôn", "Bác đang có triệu chứng buồn nôn"),
-    ("khó thở", "Bác đang cảm thấy khó thở, mệt mỏi"),
+    ("khó thở", "Bác đang cảm thấy khó thở, hụt hơi"),
+    ("tức ngực", "Bác đang cảm thấy tức ngực khó chịu"),
+    ("đau ngực", "Bác đang cảm thấy đau thắt ngực"),
+    ("đau thắt ngực", "Bác đang cảm thấy đau thắt ngực"),
+    ("té ngã", "Bác vừa bị té ngã"),
+    ("ngã", "Bác vừa bị ngã"),
+    ("tim đập nhanh", "Bác cảm thấy hồi hộp, tim đập nhanh"),
     ("uống nhầm", "Bác báo có thể đã uống nhầm thuốc"),
     ("mệt quá", "Bác đang cảm thấy rất mệt trong người"),
     ("mệt trong người", "Bác đang cảm thấy mệt mỏi trong người"),
-    ("tức ngực", "Bác đang cảm thấy tức ngực khó chịu"),
-    ("tim đập nhanh", "Bác cảm thấy hồi hộp, tim đập nhanh")
+    ("mệt mỏi", "Bác đang cảm thấy mệt mỏi bất thường"),
+    ("thấy mệt", "Bác đang cảm thấy mệt trong người"),
+    ("mệt", "Bác đang cảm thấy mệt mỏi trong người"),
+    ("sốt", "Bác đang bị sốt, người nóng ran"),
+    ("nóng sốt", "Bác đang bị nóng sốt bất thường"),
+    ("đau lưng", "Bác đang cảm thấy đau nhức lưng"),
+    ("nhức mỏi", "Bác đang cảm thấy nhức mỏi cơ thể")
 ]
 
 def evaluate_safety_and_intent(user_text: str) -> dict:
@@ -61,7 +76,7 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
                 "warning_reason": desc,
                 "action": "EMERGENCY_ALERT",
                 "reply_speech": (
-                    f"Dạ thưa Bác, cháu đã ghi nhận {desc}. Bác vui lòng ngồi nghỉ ngơi tại chỗ và giữ bình tĩnh nhé ạ, "
+                    f"Dạ thưa Bác, cháu đã ghi nhận {desc}. Bác vui lòng ngồi nghỉ ngơi tại chỗ, uống nước ấm và giữ bình tĩnh nhé ạ, "
                     f"cháu đang báo ngay cho gia đình để liên hệ với Bác ạ!"
                 )
             }
@@ -70,7 +85,8 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
     intake_keywords = [
         "uống rồi", "đã uống", "uống xong", "đã nghe", "nghe rồi", 
         "uống thuốc rồi", "nghe nhắc", "uống cữ", "uống hết", "uống thuốc cữ",
-        "bác uống rồi", "tôi uống rồi", "xong cữ", "bác đã uống", "cháu ơi bác uống"
+        "bác uống rồi", "tôi uống rồi", "xong cữ", "bác đã uống", "cháu ơi bác uống",
+        "tao uống rồi", "uống rồi nhé", "vừa uống xong"
     ]
     is_intake = (
         any(k in text_clean for k in intake_keywords) or
@@ -90,8 +106,8 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
             )
         }
 
-    # 4. Ý định hỏi về thuốc trong ngày (INQUIRE_MEDICATION)
-    if any(k in text_clean for k in ["thuốc gì", "mấy viên", "uống thế nào", "cữ này", "lịch thuốc", "những thuốc gì"]):
+    # 4. Ý định hỏi về thuốc trong ngày & việc cần làm hôm nay (INQUIRE_MEDICATION)
+    if any(k in text_clean for k in ["thuốc gì", "mấy viên", "uống thế nào", "cữ này", "lịch thuốc", "những thuốc gì", "mấy giờ uống", "khi nào uống", "làm gì", "cần làm gì", "phải làm gì", "việc hôm nay", "hôm nay có việc gì"]):
         return {
             "is_safe": True,
             "intent": "INQUIRE_MEDICATION",
@@ -99,12 +115,46 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
             "warning_reason": None,
             "action": "READ_SCHEDULE",
             "reply_speech": (
-                "Dạ thưa Bác, theo đơn thuốc đã được gia đình xác minh, cữ sáng nay Bác có thuốc huyết áp Amlodipine 5mg "
-                "và thuốc bổ não Ginkgo Biloba 120mg, uống sau bữa ăn sáng với nước ấm Bác nhé ạ!"
+                "Dạ thưa Bác, hôm nay việc quan trọng của Bác là uống một ly nước ấm, đo huyết áp và ăn sáng thanh đạm ạ. "
+                "Cữ sáng nay Bác có thuốc huyết áp Amlodipine 5mg và thuốc bổ não Ginkgo Biloba 120mg, "
+                "uống sau bữa ăn sáng cùng nước lọc ấm Bác nhé ạ!"
             )
         }
 
-    # 5. Ý định chưa chắc chắn
+    # 5. Ý định chào hỏi & xưng hô thân mật (GREETING)
+    if any(k in text_clean for k in ["chào cháu", "xin chào", "cháu ơi", "alo", "bác chào cháu", "chào em", "ơi cháu", "cháu có nghe không", "có ai không", "bác đây", "ông đây", "bà đây"]):
+        return {
+            "is_safe": True,
+            "intent": "GREETING",
+            "pattern_matched": None,
+            "warning_reason": None,
+            "action": "SAFE_GENERAL_REPLY",
+            "reply_speech": "Dạ, cháu chào Bác ạ! Cháu là trợ lý nhắc thuốc MediGuard AI luôn túc trực bên Bác đây. Hôm nay Bác cảm thấy trong người thế nào ạ?"
+        }
+
+    # 6. Ý định hỏi danh tính & chức năng (IDENTITY)
+    if any(k in text_clean for k in ["cháu là ai", "cháu tên gì", "tên là gì", "đây là app gì", "cháu làm được gì", "giúp bác cái gì"]):
+        return {
+            "is_safe": True,
+            "intent": "IDENTITY",
+            "pattern_matched": None,
+            "warning_reason": None,
+            "action": "SAFE_GENERAL_REPLY",
+            "reply_speech": "Dạ, cháu là Trợ lý Y tế MediGuard AI dành riêng cho Bác ạ! Cháu có thể nhắc Bác uống thuốc đúng giờ, đọc đơn thuốc và báo con cháu khi Bác cần hỗ trợ ạ."
+        }
+
+    # 7. Ý định cảm ơn & tạm biệt (GRATITUDE)
+    if any(k in text_clean for k in ["cảm ơn", "cám ơn", "ngoan quá", "tốt lắm", "tạm biệt", "chúc ngủ ngon"]):
+        return {
+            "is_safe": True,
+            "intent": "GRATITUDE",
+            "pattern_matched": None,
+            "warning_reason": None,
+            "action": "SAFE_GENERAL_REPLY",
+            "reply_speech": "Dạ không có gì đâu ạ! Được trò chuyện và chăm sóc sức khỏe cho Bác là niềm vui của cháu. Bác cần gì cứ gọi cháu nhé, chúc Bác luôn vui khỏe ạ!"
+        }
+
+    # 8. Ý định chưa chắc chắn
     if any(k in text_clean for k in ["chưa chắc", "không chắc", "thuốc lạ", "nhìn lạ", "quên mất"]):
         return {
             "is_safe": True,
@@ -118,7 +168,7 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
             )
         }
 
-    # 6. Ý định cần giúp đỡ
+    # 9. Ý định cần giúp đỡ
     if any(k in text_clean for k in ["cần giúp", "giúp bác", "cứu", "gọi con", "gọi người nhà"]):
         return {
             "is_safe": True,
@@ -136,5 +186,5 @@ def evaluate_safety_and_intent(user_text: str) -> dict:
         "pattern_matched": None,
         "warning_reason": None,
         "action": "SAFE_GENERAL_REPLY",
-        "reply_speech": "Dạ cháu nghe đây ạ! Bác có muốn cháu đọc lại lịch uống thuốc hay cần cháu giúp gì thêm không ạ?"
+        "reply_speech": "Dạ cháu nghe đây ạ! Bác có muốn cháu đọc lại lịch uống thuốc hôm nay hay cần cháu giúp gì thêm không ạ?"
     }

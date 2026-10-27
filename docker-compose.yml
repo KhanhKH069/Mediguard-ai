@@ -1,53 +1,128 @@
+# ==============================================================================
+# MEDIGUARD CARE - PRODUCTION DOCKER COMPOSE ORCHESTRATION
+# Modular Monolith -> Microservices Architecture
+# Backend (FastAPI), Frontend (Next.js), PostgreSQL 16, Redis, MinIO S3
+# ==============================================================================
+
+version: "3.9"
+
 services:
-  db:
+  # ----------------------------------------------------------------------------
+  # 1. POSTGRESQL 16 (Primary Clinical & JSONB Database)
+  # ----------------------------------------------------------------------------
+  postgres:
     image: postgres:16-alpine
-    container_name: mediguard_db
+    container_name: mediguard-postgres
     restart: always
     environment:
-      POSTGRES_USER: mediguard_user
-      POSTGRES_PASSWORD: mediguard_secure_password
+      POSTGRES_USER: mediguard
+      POSTGRES_PASSWORD: mediguard_secure_pwd
       POSTGRES_DB: mediguard_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mediguard_user -d mediguard_db"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U mediguard -d mediguard_db"]
+      interval: 10s
       timeout: 5s
       retries: 5
 
+  # ----------------------------------------------------------------------------
+  # 2. REDIS (Celery Task Queue & In-Memory State)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: mediguard-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 3. MINIO (S3 Object Storage for AES-256 Encrypted Voice Recordings)
+  # ----------------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2024-03-30T09-41-56Z
+    container_name: mediguard-minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  # ----------------------------------------------------------------------------
+  # 4. BACKEND API (FastAPI, Python 3.11+, WebSockets)
+  # ----------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: mediguard_backend
+    container_name: mediguard-backend
     restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mediguard:mediguard_secure_pwd@postgres:5432/mediguard_db
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-mock-gemini-key}
+      TELEPHONY_PROVIDER: stringee
+      HOTLINE_EMERGENCY_TRANSFER: "19001115"
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://mediguard_user:mediguard_secure_password@db:5432/mediguard_db
-    env_file:
-      - .env
-    volumes:
-      - ./backend/storage:/app/storage
-    depends_on:
-      db:
-        condition: service_healthy
 
+  # ----------------------------------------------------------------------------
+  # 5. CELERY WORKER (Call Scheduler & Retry Engine)
+  # ----------------------------------------------------------------------------
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mediguard-celery-worker
+    restart: always
+    depends_on:
+      - backend
+      - redis
+    command: celery -A app.workers.call_scheduler worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mediguard:mediguard_secure_pwd@postgres:5432/mediguard_db
+      REDIS_URL: redis://redis:6379/0
+
+  # ----------------------------------------------------------------------------
+  # 6. FRONTEND (Next.js 15 Caregiver & Clinical Triage Dashboard)
+  # ----------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: mediguard_frontend
+    container_name: mediguard-frontend
     restart: always
-    ports:
-      - "5173:80"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
     depends_on:
       - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000/ws/triage
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:
-    driver: local
+  redis_data:
+  minio_data:

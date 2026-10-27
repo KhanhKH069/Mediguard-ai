@@ -1,0 +1,73 @@
+# ==============================================================================
+# MEDIGUARD CLINICAL PROTOCOL: OBSTETRICS POST-CESAREAN SECTION (7-DAY FOLLOW-UP)
+# Approved by Hospital Medical Board - Protocol ID: PROTO-OBGYN-CSEC-7D
+# Applicable to: Post-Cesarean Section Patients, Postpartum Wound & Lochia Monitoring
+# ==============================================================================
+
+protocol_id: "obstetrics_csection_7d"
+name: "Quy trình theo dõi sau mổ lấy thai / Hậu sản (7 ngày)"
+department: "Khoa Sản - Phụ khoa"
+cadence_schedule:
+  - day: 2
+    offset_hours: 48
+    focus: "Co hồi tử cung, sản dịch ban đầu, tập vận động nhẹ, sữa về"
+  - day: 5
+    offset_hours: 120
+    focus: "Vết mổ thành bụng, sàng lọc tắc tia sữa / viêm tuyến vú, tính chất sản dịch"
+  - day: 7
+    offset_hours: 168
+    focus: "Đánh giá hồi phục thể chất, tầm soát dấu hiệu trầm cảm sau sinh (EPDS rút gọn)"
+
+questions:
+  day_2:
+    - id: "d2_uterus_pain"
+      text: "Dạ em chào chị, hôm nay là ngày thứ 2 sau mổ đẻ, chị thấy cơn gò tử cung và vết mổ ở bụng dưới có đỡ đau hơn lúc ở viện chưa ạ?"
+      expected_entity: "uterine_pain"
+    - id: "d2_lochia"
+      text: "Chị kiểm tra giúp em sản dịch ra nhiều hay ít, có màu đỏ sẫm hay lẫn cục máu đông lớn không ạ?"
+      expected_entity: "lochia_status"
+
+  day_5:
+    - id: "d5_breast"
+      text: "Dạ hai bên ngực của chị có bị cương tức, vón cục cứng ngắc hay đau rát núm vú khi cho bé bú không ạ?"
+      expected_entity: "breast_condition"
+    - id: "d5_wound"
+      text: "Vết mổ ở bụng dưới của chị có khô ráo không, mép vết mổ có bị sưng đỏ hay rỉ dịch vàng không ạ?"
+      expected_entity: "csection_wound"
+    - id: "d5_temp"
+      text: "Chị có thấy người sốt gai rét hay âm ấm đầu không, nhiệt độ cặp được là bao nhiêu ạ?"
+      expected_entity: "fever_status"
+
+triage_rules:
+  RED_FLAG:
+    criteria:
+      - condition: "lochia_bleeding == 'massive_postpartum_hemorrhage' or lochia_pads_soaked_per_hour >= 2"
+        reason: "Băng huyết sau sinh: Ra máu âm đạo ướt đẫm > 2 băng vệ sinh/giờ hoặc nhiều máu cục tươi"
+        action: "KÍCH HOẠT CODE RED SẢN KHOA: Gọi 115 và yêu cầu đến viện cấp cứu ngay"
+      - condition: "temperature >= 38.5 and lochia_foul_odor == True"
+        reason: "Sốt cao kèm sản dịch có mùi hôi tanh nồng (nhiễm trùng hậu sản / viêm nội mạc tử cung)"
+        action: "Bác sĩ sản khoa liên hệ khẩn cấp trong 15 phút, hướng dẫn nhập viện"
+      - condition: "calf_pain_unilateral == True"
+        reason: "Đau tức sưng bắp chân một bên (nghi huyết khối tĩnh mạch sâu sau mổ đẻ DVT)"
+        action: "Yêu cầu nằm yên, không xoa bóp bắp chân, chuyển khám siêu âm doppler mạch máu"
+
+  ORANGE_FLAG:
+    criteria:
+      - condition: "breast_condition in ['engorged_with_fever', 'mastitis_suspected']"
+        reason: "Cương đau vú kèm sốt nhẹ < 38.5°C nghi tắc tia sữa biến chứng viêm tuyến vú"
+        action: "Điều dưỡng sản gọi lại hướng dẫn chườm ấm, thông tắc tia sữa và vắt sữa"
+      - condition: "csection_wound in ['redness_spreading', 'serous_discharge']"
+        reason: "Vết mổ đỏ tấy lan rộng hoặc rỉ dịch huyết thanh"
+        action: "Bác sĩ trực xem xét kê đơn sát khuẩn hoặc hẹn khám lại trong 4h"
+
+  YELLOW_FLAG:
+    criteria:
+      - condition: "has_unclear_fields == True"
+        reason: "Chưa rõ số đo nhiệt độ hoặc cuộc gọi bị gián đoạn do bé khóc"
+        action: "Gọi lại vào khung giờ thích hợp hơn để bổ sung hồ sơ"
+
+  GREEN_FLAG:
+    criteria:
+      - condition: "lochia_status == 'normal_decreasing' and csection_wound == 'dry' and temperature < 37.5"
+        reason: "Tử cung co hồi tốt, vết mổ khô, sữa về đều, không sốt"
+        action: "Ghi nhận tiến trình phục hồi tốt, hẹn lịch gọi tiếp theo"

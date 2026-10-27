@@ -1,0 +1,105 @@
+# ==============================================================================
+# MEDIGUARD CLINICAL PROTOCOL: GENERAL SURGERY POST-OPERATIVE (7-DAY FOLLOW-UP)
+# Approved by Hospital Medical Board - Protocol ID: PROTO-SURG-7D-V2
+# Applicable to: Laparoscopic Cholecystectomy, Appendectomy, Hernia Repair
+# ==============================================================================
+
+protocol_id: "general_surgery_postop_7d"
+name: "Quy trình theo dõi sau phẫu thuật ngoại tổng quát (7 ngày)"
+department: "Khoa Ngoại Tiêu hóa - Gan Mật"
+cadence_schedule:
+  - day: 1
+    offset_hours: 24
+    focus: "Ổn định vết mổ sau xuất viện, mức độ đau, bắt đầu dung nạp thức ăn loãng"
+  - day: 3
+    offset_hours: 72
+    focus: "Phát hiện biến chứng sớm: nhiễm trùng vết mổ, sốt, bí trung đại tiện"
+  - day: 7
+    offset_hours: 168
+    focus: "Đánh giá lành sẹo, vận động thể lực, chuẩn bị cắt chỉ hoặc khám lại"
+
+# Question Scripts spoken by Voicebot on specific days
+questions:
+  day_1:
+    - id: "d1_pain"
+      text: "Dạ thưa bác, hôm nay là ngày đầu tiên sau khi xuất viện, bác thấy vết mổ của mình có đau nhiều không, điểm đau từ 1 đến 10 là mấy điểm ạ?"
+      expected_entity: "pain_status"
+    - id: "d1_gi"
+      text: "Bác đã uống được nước hoặc ăn chút cháo loãng chưa, và bụng có thấy chướng hay buồn nôn không ạ?"
+      expected_entity: "gi_tolerance"
+    - id: "d1_meds"
+      text: "Bác đã uống các loại thuốc giảm đau và kháng sinh theo đơn bác sĩ dặn sáng nay chưa ạ?"
+      expected_entity: "medication_adherence"
+
+  day_3:
+    - id: "d3_pain_trend"
+      text: "Dạ chào bác, hôm nay vết mổ của bác có bớt đau hơn hôm trước hay lại thấy đau nhức tăng lên ạ?"
+      expected_entity: "pain_trend"
+    - id: "d3_wound"
+      text: "Bác nhìn giúp xem băng gạc vết mổ có bị ướt, chảy dịch vàng, dịch mủ hay rỉ máu đỏ tươi không ạ?"
+      expected_entity: "wound_exudate"
+    - id: "d3_fever"
+      text: "Hôm nay người bác có thấy âm ấm sốt, ớn lạnh gai người không, bác đã cặp nhiệt độ chưa ạ?"
+      expected_entity: "fever_status"
+    - id: "d3_gi_bowel"
+      text: "Bác đã đi ngoài hoặc trung tiện đánh hơi được bình thường chưa ạ?"
+      expected_entity: "bowel_movement"
+
+  day_7:
+    - id: "d7_wound_healing"
+      text: "Dạ hôm nay vết mổ của bác đã khô ráo hoàn toàn chưa, có còn sưng đỏ quanh chân chỉ không ạ?"
+      expected_entity: "wound_condition"
+    - id: "d7_mobility"
+      text: "Bác đã đi lại sinh hoạt nhẹ nhàng trong nhà thấy thoải mái chưa ạ?"
+      expected_entity: "mobility_status"
+
+# Deterministic Clinical Triage Rules (Rule-first, Zero-Hallucination)
+triage_rules:
+  # Cấp độ 4: ĐỎ - Cấp cứu khẩn cấp (SLA < 15 phút)
+  RED_FLAG:
+    criteria:
+      - condition: "bleeding == 'heavy' or wound_exudate == 'fresh_blood'"
+        reason: "Chảy máu tươi cấp tính hoặc ướt đẫm băng vết mổ"
+        action: "Kích hoạt Code Red, thông báo Trưởng kíp cấp cứu và điều dưỡng gọi 115 ngay"
+      - condition: "temperature >= 38.5 or fever_status == 'high_fever_with_chills'"
+        reason: "Sốt cao trên 38.5°C kèm rét run (nghi nhiễm trùng ổ bụng / áp xe)"
+        action: "Yêu cầu đến ngay phòng cấp cứu gần nhất, điều dưỡng liên hệ trong 15 phút"
+      - condition: "breathing_difficulty == True"
+        reason: "Khó thở cấp tính hoặc thở dốc sau phẫu thuật"
+        action: "Kích hoạt xử lý khẩn cấp nghi thuyên tắc phổi hoặc tràn khí"
+      - condition: "pain_vas >= 8"
+        reason: "Đau dữ dội cấp tính không đáp ứng thuốc giảm đau (VAS >= 8)"
+        action: "Bác sĩ trực xem xét chỉ định nhập viện tái khám khẩn"
+
+  # Cấp độ 3: CAM - Cần nhân viên y tế xem xét trong 4 giờ (SLA < 4 giờ)
+  ORANGE_FLAG:
+    criteria:
+      - condition: "pain_trend == 'worsening' and day >= 3"
+        reason: "Đau vết mổ tăng dần từ ngày thứ 3 trở đi (bất thường so với tiến trình bình thường)"
+        action: "Điều dưỡng phụ trách gọi lại rà soát vết mổ và báo bác sĩ trong 4h"
+      - condition: "wound_exudate in ['yellow_pus', 'foul_smell', 'seroma']"
+        reason: "Vết mổ rỉ dịch mủ vàng hoặc có mùi hôi nghi nhiễm trùng nông chân chỉ"
+        action: "Hướng dẫn giữ vệ sinh, gửi ảnh vết mổ qua Zalo OA bảo mật và xếp lịch khám lại"
+      - condition: "temperature >= 37.5 and temperature < 38.5"
+        reason: "Sốt nhẹ kéo dài 37.5°C - 38.4°C"
+        action: "Điều dưỡng theo dõi thân nhiệt cách 4 giờ, hướng dẫn chườm ấm"
+      - condition: "bowel_movement == 'no_flatus_or_stool_72h'"
+        reason: "Bí trung đại tiện kéo dài quá 72 giờ sau mổ"
+        action: "Bác sĩ đánh giá liệt ruột cơ năng sau mổ"
+
+  # Cấp độ 2: VÀNG - Cần bổ sung thông tin hoặc giải đáp (SLA < 12 giờ)
+  YELLOW_FLAG:
+    criteria:
+      - condition: "has_unclear_fields == True"
+        reason: "Cuộc gọi bị ngắt quãng hoặc bệnh nhân trả lời chưa rõ ràng các chỉ số quan trọng"
+        action: "Điều dưỡng CSKH gọi lại lần 2 hoặc nhắn tin Zalo ZNS lấy số đo nhiệt độ/vết mổ"
+      - condition: "patient_has_question == True"
+        reason: "Bệnh nhân có thắc mắc về chế độ ăn uống, vận động hoặc cách thay băng"
+        action: "Chuyển câu hỏi cho điều dưỡng tư vấn giải đáp trong ca trực"
+
+  # Cấp độ 1: XANH - Diễn tiến bình thường theo kế hoạch (Routine)
+  GREEN_FLAG:
+    criteria:
+      - condition: "pain_trend in ['improving', 'stable'] and temperature < 37.5 and wound_exudate == 'dry'"
+        reason: "Vết mổ khô, đau giảm đúng tiến độ, không sốt, ăn uống vận động tốt"
+        action: "Lưu hồ sơ phục hồi, lên lịch cuộc gọi tự động tiếp theo theo phác đồ"

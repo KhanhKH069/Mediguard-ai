@@ -1,0 +1,117 @@
+{
+  "description": "Từ điển ánh xạ phương ngữ và ngôn ngữ đời thường Việt Nam sang thực thể triệu chứng lâm sàng chuẩn hóa cho MediGuard Care",
+  "version": "1.2.0",
+  "last_updated": "2026-10-23",
+  "mappings": {
+    "fever_status": {
+      "standard_terms": ["sốt nhẹ", "sốt cao", "không sốt", "rét run", "ớn lạnh"],
+      "colloquial_variations": {
+        "hâm hấp": "fever_mild",
+        "hâm hấp sốt": "fever_mild",
+        "nóng đầu": "fever_mild",
+        "âm ấm trán": "fever_mild",
+        "nóng hầm hập": "fever_high",
+        "sốt đùng đùng": "fever_high",
+        "nóng ran cả người": "fever_high",
+        "gai người": "chills",
+        "gai gai rét": "chills",
+        "ớn ớn lạnh": "chills",
+        "lạnh run cầm cập": "rigors_chills",
+        "rét run": "rigors_chills",
+        "mát mẻ bình thường": "normal_afebrile",
+        "không nóng đầu": "normal_afebrile"
+      }
+    },
+    "wound_condition": {
+      "standard_terms": ["khô ráo", "chảy máu tươi", "chảy dịch mủ vàng", "thấm dịch", "sưng tấy đỏ", "bục chỉ"],
+      "colloquial_variations": {
+        "rỉ dịch": "serous_exudate",
+        "rỉ nước vàng": "yellow_pus_suspected",
+        "mưng mủ": "purulent_pus",
+        "nước nhờn nhờn có mùi": "foul_smelling_exudate",
+        "ướt đẫm băng": "soaked_dressing",
+        "thấm băng": "mild_strike_through",
+        "đỏ lựng chân chỉ": "erythema_wound_edge",
+        "tấy đỏ quanh rốn": "erythema_periumbilical",
+        "hơi nề": "mild_edema",
+        "sưng vù": "severe_swelling",
+        "khô queo": "dry_clean_wound",
+        "khô ráo": "dry_clean_wound",
+        "lành miệng": "healing_well",
+        "bục mép": "wound_dehiscence",
+        "hở miệng vết rạch": "wound_dehiscence"
+      }
+    },
+    "pain_status": {
+      "standard_terms": ["đau dữ dội", "đau vừa", "đau nhẹ", "hết đau", "đau nhói", "đau quặn", "đau thắt"],
+      "colloquial_variations": {
+        "nhức giật giật": "throbbing_pain",
+        "đau nhói buốt": "sharp_stabbing_pain",
+        "đau rát như xát muối": "burning_pain",
+        "tức anh ách": "dull_pressure_discomfort",
+        "đau quặn từng cơn": "colicky_pain",
+        "đau thắt nghẹn ngực": "ischemic_chest_tightness",
+        "đau thốn": "tender_pain",
+        "thốn khi ho": "pain_on_coughing",
+        "chỉ hơi cộm": "mild_discomfort",
+        "êm ru": "pain_free",
+        "êm hơn nhiều": "pain_improving",
+        "đỡ nhiều rồi": "pain_improving",
+        "dịu hẳn": "pain_improving",
+        "đau buốt hơn hôm qua": "pain_worsening",
+        "nhức dữ quá": "pain_severe"
+      }
+    },
+    "pain_trend": {
+      "standard_terms": ["tăng", "giảm", "không đổi", "mới xuất hiện"],
+      "colloquial_variations": {
+        "đỡ nhiều": "improving",
+        "bớt đau": "improving",
+        "dịu bớt": "improving",
+        "êm dần": "improving",
+        "đỡ chừng phân nửa": "improving",
+        "y như cũ": "stable",
+        "vẫn râm ran thế": "stable",
+        "không đỡ tí nào": "stable",
+        "đau tợn hơn": "worsening",
+        "dội đau lên": "worsening",
+        "nhức tăng nhiều": "worsening",
+        "từ sáng giờ thấy đau hơn": "worsening",
+        "mới bị lúc trưa": "new_onset"
+      }
+    },
+    "gi_and_bowel": {
+      "standard_terms": ["trung tiện", "đại tiện", "buồn nôn", "chướng bụng", "đầy hơi"],
+      "colloquial_variations": {
+        "đánh hơi": "flatus_passed",
+        "xì hơi": "flatus_passed",
+        "trung tiện": "flatus_passed",
+        "đi cầu": "bowel_movement",
+        "đi ngoài": "bowel_movement",
+        "đi ngoài lỏng": "diarrhea",
+        "táo bón": "constipation",
+        "chưa đi cầu được": "constipation",
+        "lợm giọng": "nausea",
+        "mắc ói": "nausea",
+        "mắc nôn": "nausea",
+        "nôn thốc nôn tháo": "vomiting_severe",
+        "bụng căng như cái trống": "abdominal_distension_severe",
+        "đầy ứ bụng": "abdominal_fullness"
+      }
+    },
+    "obstetric_terms": {
+      "standard_terms": ["sản dịch", "băng huyết", "cương tức vú", "tắc tia sữa"],
+      "colloquial_variations": {
+        "ra máu âm đạo": "lochia_rubra",
+        "ra dịch nhờn đỏ": "lochia_rubra",
+        "máu đỏ lòm": "lochia_fresh_blood",
+        "máu cục to bằng nắm tay": "large_blood_clots",
+        "tanh nồng nặc": "foul_smelling_lochia",
+        "vú căng cứng như đá": "severe_breast_engorgement",
+        "vón cục trong bầu ngực": "milk_duct_blockage",
+        "nứt cổ gà": "nipple_fissure",
+        "sữa về đẫm áo": "adequate_lactation"
+      }
+    }
+  }
+}

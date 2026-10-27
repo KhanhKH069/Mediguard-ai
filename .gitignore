@@ -93,3 +93,8 @@ Desktop.ini
 .DS_Store
 .AppleDouble
 .LSOverride
+
+
+# 7. CLOUDFLARE TUNNEL & MOBILE ACCESS
+cloudflared.exe
+phone_access.html

@@ -1,31 +1,35 @@
-"""
-Nội dung của app/models/__init__.py
+# ==============================================================================
+# MEDIGUARD MODELS PACKAGE
+# Unified models for Patient Care, Triage, Medication, and Audit Logging
+# ==============================================================================
 
-Import TẤT CẢ model ở đây để:
-  1. Base.metadata.create_all() nhìn thấy đủ bảng.
-  2. Các relationship khai báo bằng tên chuỗi (ví dụ "Schedule") luôn tìm được class đích.
-"""
-from app.models.user import User, Role, caregiver_elder_link
-from app.models.medication import Medication
-from app.models.schedule import Schedule
-from app.models.interaction_log import (
-    InteractionLog,
-    EventType,
-    CvStatus,
-    ImmutableLogError,
-)
-from app.models.device_event import DeviceEvent, DeviceEventName
+from .patient import Patient, Base
+from .call_session import CallSession
+from .symptom_log import SymptomLog
+from .triage_ticket import TriageTicket
+from .user import User
+from .medication import Medication
+from .schedule import Schedule
+from .interaction_log import InteractionLog
+from .call_report import AICallReport, CallStatus, MedicationAdherence, FollowupPriority
+try:
+    from .device_event import DeviceEvent
+except ImportError:
+    DeviceEvent = None
 
 __all__ = [
+    "Patient",
+    "Base",
+    "CallSession",
+    "SymptomLog",
+    "TriageTicket",
     "User",
-    "Role",
-    "caregiver_elder_link",
     "Medication",
     "Schedule",
     "InteractionLog",
-    "EventType",
-    "CvStatus",
-    "ImmutableLogError",
-    "DeviceEvent",
-    "DeviceEventName",
+    "AICallReport",
+    "CallStatus",
+    "MedicationAdherence",
+    "FollowupPriority",
+    "DeviceEvent"
 ]

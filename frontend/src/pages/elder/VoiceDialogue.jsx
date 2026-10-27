@@ -1,59 +1,71 @@
-import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, ArrowLeft, Volume2, Sparkles, RotateCcw } from 'lucide-react';
-import { createSpeechRecognizer, playVoiceSpeech, unlockAllAudio } from '../../services/voiceService';
-import { processVoiceSpeech } from '../../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Mic,
+  MicOff,
+  ArrowLeft,
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  HeartPulse,
+  MessageSquareQuote,
+  AlertTriangle,
+  Sparkles
+} from 'lucide-react';
+import { createSpeechRecognizer, playVoiceSpeech, stopAllSpeech, unlockAllAudio } from '../../services/voiceService';
+import { fastAIReply } from '../../services/api';
 import { playChimeSound } from '../../utils/soundEffects';
 import AudioEqualizer from '../../components/AudioEqualizer';
 
-const INITIAL_GREETING = 'Dạ thưa Bác, cháu đang lắng nghe đây ạ! Bác bấm micro lớn bên dưới hoặc chọn câu mẫu để trò chuyện với cháu nhé ạ.';
+const GOOGLE_VOICE = 'vi-VN-Google';
+const INITIAL_GREETING = 'Dạ thưa Bác, cháu là Chị Google - trợ lý y tế của Bác đây ạ. Bác chạm vào chiếc micro bên dưới hoặc chọn câu hỏi mẫu để trò chuyện cùng cháu nhé.';
 
-export default function VoiceDialogue({ onBack }) {
-  const [selectedVoice, setSelectedVoice] = useState(
-    () => localStorage.getItem('mediguard_voice') || 'vi-VN-HoaiMyNeural'
-  );
-  const [voiceRate, setVoiceRate] = useState(
-    () => localStorage.getItem('mediguard_rate') || '-8%'
-  );
+export default function VoiceDialogue({ onBack, currentUser, elderId = null }) {
+  const [voiceRate, setVoiceRate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('mediguard_rate') || '+0%';
+    }
+    return '+0%';
+  });
+
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [reply, setReply] = useState(INITIAL_GREETING);
   const [lastAudioUrl, setLastAudioUrl] = useState(null);
-  const [recognizer, setRecognizer] = useState(null);
+  const [groundingUsed, setGroundingUsed] = useState(false);
+  const [sources, setSources] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [symptomAlertInfo, setSymptomAlertInfo] = useState(null);
+  const [micNotice, setMicNotice] = useState('');
 
-  // Bảo vệ: Tự động giải phóng trạng thái đang nói/đang tải sau 10 giây nếu có sự cố
-  useEffect(() => {
-    if (isLoading || isPlayingVoice) {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-        setIsPlayingVoice(false);
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, isPlayingVoice]);
+  const isExecutingRef = useRef(false);
+  const silenceTimerRef = useRef(null);
+  const recognizerRef = useRef(null);
+  const voiceRateRef = useRef(voiceRate);
+  voiceRateRef.current = voiceRate;
 
   useEffect(() => {
-    // Mở khóa âm thanh toàn diện
     unlockAllAudio();
 
-    // Tự động phát câu chào mở đầu của AI Agent bằng giọng nói tiếng Việt
-    const greetTimer = setTimeout(async () => {
-      try {
-        setIsPlayingVoice(true);
-        await playVoiceSpeech(null, INITIAL_GREETING, selectedVoice, voiceRate);
-      } catch (e) {
-        console.warn('Lỗi phát giọng chào:', e);
-      } finally {
-        setIsPlayingVoice(false);
-      }
-    }, 350);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mediguard_voice', GOOGLE_VOICE);
+    }
 
-    // Khởi tạo nhận diện giọng nói
     const rec = createSpeechRecognizer(
-      (text) => {
+      (text, isFinal) => {
+        if (!text || isExecutingRef.current) return;
         setTranscript(text);
-        handleSpeechProcessing(text);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
+        if (isFinal) {
+          handleSpeechProcessing(text.trim());
+        } else {
+          silenceTimerRef.current = setTimeout(() => {
+            if (text && text.trim().length >= 2 && !isExecutingRef.current) {
+              handleSpeechProcessing(text.trim());
+            }
+          }, 650);
+        }
       },
       (err) => {
         console.warn('Lỗi nhận diện:', err);
@@ -63,10 +75,11 @@ export default function VoiceDialogue({ onBack }) {
         setIsListening(false);
       }
     );
-    setRecognizer(rec);
+    recognizerRef.current = rec;
 
     return () => {
-      clearTimeout(greetTimer);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      stopAllSpeech();
       if (rec) {
         try {
           rec.abort();
@@ -75,123 +88,127 @@ export default function VoiceDialogue({ onBack }) {
     };
   }, []);
 
-  const toggleListen = async () => {
+  const stopListening = () => {
+    if (recognizerRef.current) {
+      try {
+        recognizerRef.current.stop();
+      } catch (e) {}
+    }
+    setIsListening(false);
+  };
+
+  const startListening = async () => {
     await unlockAllAudio();
-    if (!recognizer) {
-      alert('Trình duyệt chưa hỗ trợ micro hoặc chưa cấp quyền. Bác có thể bấm các câu mẫu bên dưới để nói chuyện với cháu nhé ạ!');
+    stopAllSpeech();
+    setMicNotice('');
+    if (!recognizerRef.current) {
+      setMicNotice('Trình duyệt chưa cấp quyền micro. Bác có thể chạm vào các câu mẫu bên dưới để trò chuyện với cháu nhé!');
       return;
     }
-    if (isListening) {
-      try {
-        recognizer.stop();
-      } catch (e) {}
+    setTranscript('');
+    setSymptomAlertInfo(null);
+    setGroundingUsed(false);
+    setSources([]);
+    playChimeSound();
+    try {
+      recognizerRef.current.start();
+      setIsListening(true);
+    } catch (e) {
+      console.warn('Lỗi bật micro:', e);
       setIsListening(false);
-    } else {
-      setTranscript('');
-      playChimeSound();
-      try {
-        recognizer.start();
-        setIsListening(true);
-      } catch (e) {
-        console.warn('Lỗi bật micro:', e);
-        setIsListening(false);
-      }
     }
   };
 
-  const handleVoiceChange = async (voice) => {
-    setSelectedVoice(voice);
-    localStorage.setItem('mediguard_voice', voice);
-    const sampleText = voice === 'vi-VN-NamMinhNeural'
-      ? 'Dạ thưa Bác, cháu đã đổi sang giọng Nam Minh trầm ấm, tròn vành rõ chữ cho Bác rồi ạ!'
-      : 'Dạ thưa Bác, cháu đã đổi sang giọng Hoài My nhẹ nhàng, truyền cảm cho Bác rồi ạ!';
-    setReply(sampleText);
-    setLastAudioUrl(null);
-    setIsPlayingVoice(true);
-    try {
-      await playVoiceSpeech(null, sampleText, voice, voiceRate);
-    } finally {
-      setIsPlayingVoice(false);
+  const toggleListen = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
     }
   };
 
   const handleRateChange = async (rate) => {
     setVoiceRate(rate);
+    voiceRateRef.current = rate;
     localStorage.setItem('mediguard_rate', rate);
-    const sampleText = rate === '-12%'
-      ? 'Dạ thưa Bác, cháu sẽ nói thật chậm rãi từng chữ để Bác dễ nghe nhé ạ!'
-      : rate === '-8%'
-      ? 'Dạ thưa Bác, cháu đang đọc ở tốc độ vừa vặn, rõ ràng rồi ạ!'
-      : 'Dạ thưa Bác, cháu đang đọc ở tốc độ tiêu chuẩn ạ!';
+    const sampleText = rate === '-5%'
+      ? 'Dạ thưa Bác, cháu sẽ đọc thật chậm rãi từng chữ để Bác nghe rõ nhất nhé ạ.'
+      : 'Dạ thưa Bác, cháu đang đọc ở tốc độ tự nhiên, rõ ràng rồi ạ.';
     setReply(sampleText);
     setLastAudioUrl(null);
     setIsPlayingVoice(true);
     try {
-      await playVoiceSpeech(null, sampleText, selectedVoice, rate);
+      await playVoiceSpeech(null, sampleText, GOOGLE_VOICE, rate);
     } finally {
       setIsPlayingVoice(false);
     }
   };
 
   const handleSpeechProcessing = async (userText) => {
-    if (!userText || !userText.trim()) return;
-    setIsLoading(true);
-    setReply('Dạ cháu đang suy nghĩ và chuẩn bị giọng nói...');
-    try {
-      // Gọi backend xử lý quy tắc an toàn & Edge-TTS tiếng Việt theo giọng đã chọn
-      const data = await processVoiceSpeech(userText.trim(), selectedVoice, voiceRate);
-      if (data && data.reply_speech) {
-        setReply(data.reply_speech);
-        setLastAudioUrl(data.audio_url || null);
+    if (!userText || !userText.trim() || isExecutingRef.current) return;
+    isExecutingRef.current = true;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-        // Phát giọng nói phản hồi của AI Agent
+    // Tắt micro ngay lập tức để không bị tiếng loa thu ngược vào micro
+    stopListening();
+    stopAllSpeech();
+
+    setIsLoading(true);
+    setSymptomAlertInfo(null);
+    const targetElderId = elderId || (currentUser?.role === 'ELDER' ? (currentUser.user_id || currentUser.id) : null);
+
+    try {
+      const data = await fastAIReply(
+        targetElderId,
+        userText.trim(),
+        GOOGLE_VOICE,
+        voiceRateRef.current
+      );
+
+      if (data && data.reply) {
+        setReply(data.reply);
+        setLastAudioUrl(data.audio_url || null);
+        setGroundingUsed(Boolean(data.grounding_used));
+        setSources(Array.isArray(data.sources) ? data.sources : []);
+
+        if (data.symptom_detected) {
+          setSymptomAlertInfo({
+            name: data.symptom_name,
+            date: data.reported_date,
+            time: data.reported_time
+          });
+          playChimeSound();
+        }
+
         setIsPlayingVoice(true);
-        await playVoiceSpeech(data.audio_url, data.reply_speech, selectedVoice, voiceRate);
+        setIsLoading(false);
+        await playVoiceSpeech(
+          data.audio_url,
+          data.reply,
+          GOOGLE_VOICE,
+          voiceRateRef.current
+        );
       } else {
-        throw new Error('Không nhận được nội dung phản hồi từ máy chủ');
+        throw new Error('Không nhận được câu trả lời');
       }
     } catch (err) {
-      console.error('Lỗi khi gửi câu thoại:', err);
-      
-      // Xử lý thông minh khi gặp lỗi kết nối hoặc Backend chưa bật
+      console.warn('Lỗi xử lý giọng nói:', err);
       const lower = userText.toLowerCase().trim();
-      let fallbackReply = '';
-
-      if (
-        lower.includes('uống rồi') ||
-        lower.includes('đã uống') ||
-        lower.includes('uống xong') ||
-        lower.includes('uống hết') ||
-        lower.includes('uống thuốc rồi') ||
-        (lower.includes('uống') && lower.includes('rồi'))
-      ) {
-        fallbackReply = 'Dạ cháu đã ghi nhận Bác vừa uống thuốc rồi ạ! Bác nhớ uống đủ nước ấm và nghỉ ngơi thật thoải mái nhé ạ!';
-      } else if (
-        lower.includes('uống bù') ||
-        lower.includes('gấp đôi') ||
-        lower.includes('tăng liều') ||
-        lower.includes('bỏ cữ')
-      ) {
-        fallbackReply = 'Dạ Bác ơi, Bác tuyệt đối đừng tự ý thay đổi liều lượng thuốc nhé ạ! Cháu đang báo ngay cho gia đình để hỗ trợ Bác đây ạ.';
-      } else if (
-        lower.includes('đau đầu') ||
-        lower.includes('chóng mặt') ||
-        lower.includes('đau bụng') ||
-        lower.includes('mệt') ||
-        lower.includes('buồn nôn') ||
-        lower.includes('khó thở')
-      ) {
-        fallbackReply = 'Dạ cháu ghi nhận Bác đang thấy mệt trong người. Bác vui lòng ngồi nghỉ ngơi tại chỗ, cháu đang báo ngay cho người thân trong gia đình ạ!';
-      } else {
-        fallbackReply = 'Dạ thưa Bác, hệ thống đang kết nối với máy chủ MediGuard AI. Bác vui lòng đợi trong giây lát hoặc kiểm tra kết nối mạng nhé ạ!';
+      let fallback = 'Dạ cháu đã ghi nhận thông tin của Bác rồi ạ. Bác nhớ uống đủ nước ấm và nghỉ ngơi nhé.';
+      if (lower.includes('uống rồi') || lower.includes('uống xong') || lower.includes('đã uống')) {
+        fallback = 'Dạ cháu đã ghi nhận Bác vừa uống thuốc xong rồi ạ. Cháu đã lưu vào sổ và báo cho gia đình rồi.';
+      } else if (lower.includes('chóng mặt') || lower.includes('đau đầu') || lower.includes('buồn nôn') || lower.includes('mệt')) {
+        fallback = 'Dạ thưa Bác, cháu đã lưu triệu chứng vào sổ theo dõi hôm nay và báo ngay cho con cháu rồi ạ. Bác ngồi nghỉ ngơi tại chỗ nhé.';
+        setSymptomAlertInfo({ name: 'Triệu chứng mệt mỏi', date: new Date().toLocaleDateString('vi-VN'), time: 'Vừa xong' });
       }
 
-      setReply(fallbackReply);
+      setReply(fallback);
       setIsPlayingVoice(true);
-      await playVoiceSpeech(null, fallbackReply, selectedVoice, voiceRate);
+      await playVoiceSpeech(null, fallback, GOOGLE_VOICE, voiceRateRef.current);
     } finally {
       setIsLoading(false);
       setIsPlayingVoice(false);
+      isExecutingRef.current = false;
     }
   };
 
@@ -199,219 +216,245 @@ export default function VoiceDialogue({ onBack }) {
     if (!reply || isLoading) return;
     setIsPlayingVoice(true);
     try {
-      await playVoiceSpeech(lastAudioUrl, reply, selectedVoice, voiceRate);
+      await playVoiceSpeech(lastAudioUrl, reply, GOOGLE_VOICE, voiceRateRef.current);
     } finally {
       setIsPlayingVoice(false);
     }
   };
 
+  const handleStopSpeakingNow = () => {
+    stopAllSpeech();
+    setIsPlayingVoice(false);
+  };
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 flex flex-col items-center gap-6">
-      <button
-        onClick={onBack}
-        className="self-start flex items-center gap-2 text-xl font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-white dark:bg-slate-800/90 px-5 py-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors"
-      >
-        <ArrowLeft className="w-6 h-6" /> Quay lại màn hình chính
-      </button>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+      {/* Nút quay lại & Tốc độ đọc */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2.5 text-base font-bold text-[#0B1F3A] dark:text-white bg-white dark:bg-[#0E1E36] hover:bg-slate-50 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-saas transition-all cursor-pointer"
+        >
+          <ArrowLeft className="w-5 h-5 text-[#0D9488]" />
+          <span>Quay lại trang chính</span>
+        </button>
 
-      <div className="text-center">
-        <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white">
-          Nói Chuyện Với Trợ Lý
-        </h2>
-        <p className="text-lg text-slate-500 dark:text-slate-400 mt-2">Bác bấm vào hình micro lớn bên dưới hoặc chọn câu hỏi mẫu</p>
-      </div>
-
-      {/* Thanh tùy chọn Giọng đọc & Tốc độ nói */}
-      <div className="w-full bg-white dark:bg-slate-900/90 rounded-3xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap justify-center">
-          <Volume2 className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Giọng trợ lý:</span>
-          <button
-            onClick={() => handleVoiceChange('vi-VN-NamMinhNeural')}
-            disabled={isLoading || isPlayingVoice}
-            className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${
-              selectedVoice === 'vi-VN-NamMinhNeural'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            👨 Nam Minh (Trầm ấm, rõ chữ)
-          </button>
-          <button
-            onClick={() => handleVoiceChange('vi-VN-HoaiMyNeural')}
-            disabled={isLoading || isPlayingVoice}
-            className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${
-              selectedVoice === 'vi-VN-HoaiMyNeural'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            👩 Hoài My (Nữ nhẹ nhàng)
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap justify-center">
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Tốc độ:</span>
-          <button
-            onClick={() => handleRateChange('-12%')}
-            disabled={isLoading || isPlayingVoice}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              voiceRate === '-12%'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-            title="Đọc rất chậm rãi, rõ ràng cho người cao tuổi nghe kém"
-          >
-            🐢 Rất chậm (-12%)
-          </button>
-          <button
-            onClick={() => handleRateChange('-8%')}
-            disabled={isLoading || isPlayingVoice}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              voiceRate === '-8%'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-            title="Tốc độ khuyên dùng: dễ nghe, tròn chữ"
-          >
-            👌 Chậm vừa (-8%)
-          </button>
+        {/* Nút chỉnh tốc độ đọc của Chị Google */}
+        <div className="flex items-center gap-1.5 bg-white dark:bg-[#0E1E36] p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-saas">
           <button
             onClick={() => handleRateChange('+0%')}
-            disabled={isLoading || isPlayingVoice}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               voiceRate === '+0%'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                ? 'bg-[#0D9488] text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
             }`}
-            title="Tốc độ nói thông thường"
           >
-            ⚡ Bình thường (0%)
+            ⚡ Tự nhiên (+0%)
+          </button>
+          <button
+            onClick={() => handleRateChange('-5%')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              voiceRate === '-5%'
+                ? 'bg-[#0D9488] text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            🐢 Đọc chậm rãi (-5%)
           </button>
         </div>
       </div>
 
-      {/* Nút Micro to nhấp nháy sóng âm */}
-      <div className="relative my-4">
-        {isListening && (
-          <div className="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-35 scale-150 pointer-events-none" />
-        )}
-        {isPlayingVoice && (
-          <div className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-25 scale-125 pointer-events-none" />
-        )}
-        <button
-          onClick={toggleListen}
-          disabled={isLoading}
-          className={`relative w-40 h-40 md:w-48 md:h-48 rounded-full flex items-center justify-center transition-all transform active:scale-95 border-4 ${
-            isListening
-              ? 'bg-gradient-to-tr from-rose-600 to-red-500 text-white shadow-glow-rose border-rose-300'
-              : 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white shadow-glow-blue border-blue-200 dark:border-blue-500/30'
-          }`}
-        >
-          {isListening ? <MicOff className="w-16 h-16 animate-pulse" /> : <Mic className="w-16 h-16" />}
-        </button>
-      </div>
-
-      <div className="flex flex-col items-center gap-2">
-        <p className="text-xl md:text-2xl font-display font-black text-blue-900 dark:text-blue-300 tracking-tight">
-          {isListening
-            ? 'ĐANG LẮNG NGHE BÁC NÓI...'
-            : isLoading
-            ? 'ĐANG TẠO GIỌNG ĐỌC AI...'
-            : isPlayingVoice
-            ? 'TRỢ LÝ ĐANG TRẢ LỜI...'
-            : 'BẤM MICRO ĐỂ NÓI'}
+      {/* Tiêu đề trang */}
+      <div className="text-center space-y-2">
+        <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-[#0D9488] px-3.5 py-1 rounded-md bg-[#F0FDFA] dark:bg-[#0D9488]/20 border border-[#99F6E4]/40">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Trợ Lý Sức Khỏe Giọng Nói Tiếng Việt • Chị Google</span>
+        </span>
+        <h2 className="text-3xl sm:text-4xl font-display font-bold text-[#0B1F3A] dark:text-white">
+          Trò Chuyện Cùng Cháu
+        </h2>
+        <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400">
+          Cháu dùng một giọng đọc Chị Google quen thuộc, rõ ràng, luôn túc trực lắng nghe và chăm lo sức khỏe cho Bác.
         </p>
-        <AudioEqualizer isSpeaking={isPlayingVoice} />
       </div>
 
-      {/* Hiển thị câu nói của người già */}
-      {transcript && (
-        <div className="w-full bg-blue-50/90 dark:bg-slate-900/90 border-2 border-blue-200 dark:border-blue-900/60 rounded-3xl p-5 text-center shadow-sm">
-          <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Bác vừa nói:</p>
-          <p className="text-2xl font-display font-bold text-blue-950 dark:text-blue-100 mt-1">"{transcript}"</p>
+      {micNotice && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-center gap-3 text-base font-semibold">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <span>{micNotice}</span>
         </div>
       )}
 
-      {/* Câu trả lời của AI cùng nút Nghe lại */}
-      <div className="w-full glass-card border border-slate-200 dark:border-slate-800 shadow-lg rounded-3xl p-6 text-center space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Volume2 className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Trợ lý MediGuard AI phản hồi:
-          </p>
+      {/* Cảnh báo nếu vừa phát hiện triệu chứng */}
+      {symptomAlertInfo && (
+        <div className="w-full p-5 rounded-2xl bg-red-50 dark:bg-red-950/50 border-2 border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <HeartPulse className="w-8 h-8 text-red-600 shrink-0" />
+            <div>
+              <div className="text-xs font-mono font-bold uppercase tracking-wider">
+                Đã ghi vào sổ triệu chứng ngày {symptomAlertInfo.date}
+              </div>
+              <div className="text-lg sm:text-xl font-display font-bold">
+                Đã báo tin cho con cháu: “{symptomAlertInfo.name}”
+              </div>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-white/70 dark:bg-black/30 shrink-0">
+            {symptomAlertInfo.time}
+          </span>
+        </div>
+      )}
+
+      {/* Khu vực Micro vật lý + Phản hồi */}
+      <div className="bg-white dark:bg-[#0E1E36] border border-slate-200 dark:border-slate-800 shadow-saas-md rounded-3xl p-6 sm:p-10 flex flex-col items-center gap-6">
+        <div className="relative">
+          {isListening && (
+            <div className="absolute -inset-3 rounded-full border-4 border-red-500/40 animate-ping pointer-events-none" />
+          )}
           <button
-            onClick={handleReplayCurrent}
-            disabled={isLoading || isPlayingVoice}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold text-sm rounded-xl border border-blue-200 dark:border-slate-700 transition-all active:scale-95 disabled:opacity-50"
-            title="Bác bấm vào đây để nghe lại lời trợ lý nói"
+            onClick={toggleListen}
+            disabled={isLoading}
+            className={`relative w-36 h-36 sm:w-44 sm:h-44 rounded-full flex items-center justify-center transition-all transform active:translate-y-1 border-4 border-b-8 cursor-pointer ${
+              isListening
+                ? 'bg-red-600 text-white border-red-800'
+                : 'bg-[#0D9488] hover:bg-[#0F766E] text-white border-[#115E59]'
+            }`}
+            title="Chạm để bắt đầu nói"
           >
-            <RotateCcw className="w-4 h-4" />
-            <span>Nghe Lại</span>
+            {isListening ? <MicOff className="w-16 h-16 stroke-[2.2]" /> : <Mic className="w-16 h-16 stroke-[2.2]" />}
           </button>
         </div>
-        <p className="text-2xl md:text-3xl font-display font-extrabold text-slate-800 dark:text-white leading-snug">{reply}</p>
+
+        <div className="flex flex-col items-center gap-2 text-center">
+          <p className="text-xl sm:text-2xl font-display font-bold text-[#0B1F3A] dark:text-white">
+            {isListening
+              ? 'Cháu đang lắng nghe Bác nói...'
+              : isLoading
+              ? 'Cháu đang suy nghĩ câu trả lời cho Bác...'
+              : isPlayingVoice
+              ? 'Cháu đang thưa chuyện với Bác...'
+              : 'Chạm vào nút tròn để bắt đầu nói'}
+          </p>
+          <AudioEqualizer isSpeaking={isPlayingVoice} />
+        </div>
+
+        {transcript && (
+          <div className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-center">
+            <span className="text-xs font-mono uppercase tracking-wider text-slate-500">Lời Bác vừa nói:</span>
+            <p className="text-xl sm:text-2xl font-display font-bold text-[#0B1F3A] dark:text-white mt-1">
+              “{transcript}”
+            </p>
+          </div>
+        )}
+
+        {/* Lời đáp của Chị Google */}
+        <div className="w-full bg-[#F0FDFA] dark:bg-[#0D9488]/15 border-2 border-[#99F6E4] dark:border-[#0D9488]/40 rounded-2xl p-6 space-y-3">
+          <div className="flex items-center justify-between border-b border-[#99F6E4] dark:border-[#0D9488]/30 pb-3">
+            <span className="text-xs font-mono font-bold text-[#0D9488] dark:text-[#2DD4BF] uppercase tracking-wider flex items-center gap-2">
+              <MessageSquareQuote className="w-4 h-4" />
+              <span>Chị Google (Trợ lý Y tế MediGuard):</span>
+            </span>
+            <div className="flex items-center gap-2">
+              {isPlayingVoice ? (
+                <button
+                  onClick={handleStopSpeakingNow}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-200 font-bold text-xs sm:text-sm rounded-lg border border-rose-300 dark:border-rose-700 transition-colors cursor-pointer"
+                >
+                  <VolumeX className="w-3.5 h-3.5" />
+                  <span>Dừng đọc</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleReplayCurrent}
+                  disabled={isLoading || isPlayingVoice}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-slate-900 text-[#0D9488] dark:text-[#2DD4BF] font-bold text-xs sm:text-sm rounded-lg border border-[#99F6E4] dark:border-[#0D9488]/40 hover:bg-[#F0FDFA] transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Nghe lại</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <p className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-[#0B1F3A] dark:text-white leading-relaxed">
+            {reply}
+          </p>
+          {groundingUsed && sources && sources.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-[#99F6E4]/50 dark:border-[#0D9488]/30">
+              <span className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400 block mb-1.5">
+                Nguồn tra cứu trực tuyến:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {sources.map((src, idx) => (
+                  <a
+                    key={idx}
+                    href={src.url || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-md bg-white/80 dark:bg-slate-800 text-[#0D9488] dark:text-[#2DD4BF] border border-slate-200 dark:border-slate-700 hover:underline"
+                  >
+                    🌐 {src.title || src.url || `Nguồn ${idx + 1}`}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* CÁC CÂU MẪU ĐỂ BÁC TRÒ CHUYỆN HOẶC KIỂM THỬ NHANH */}
-      <div className="w-full bg-slate-50 dark:bg-slate-900/80 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 text-left">
-        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5 mb-3">
-          <Sparkles className="w-4 h-4 text-amber-500" /> Bác bấm vào câu hỏi mẫu để nghe cháu trả lời bằng giọng nói:
+      {/* Các câu hỏi mẫu một chạm */}
+      <div className="bg-white dark:bg-[#0E1E36] border border-slate-200 dark:border-slate-800 shadow-saas p-6 rounded-3xl space-y-4">
+        <p className="text-xs font-mono font-bold text-slate-500 uppercase tracking-wider">
+          Hoặc Bác chạm vào câu hỏi có sẵn dưới đây:
         </p>
-        <div className="flex flex-col gap-2.5">
-          <button
-            onClick={() => {
-              setTranscript("Dạ cháu ơi, Bác uống thuốc cữ sáng rồi nhé");
-              handleSpeechProcessing("Dạ cháu ơi, Bác uống thuốc cữ sáng rồi nhé");
-            }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-emerald-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-emerald-950 dark:text-emerald-300 font-semibold text-base transition-colors flex items-center justify-between"
-          >
-            <span>👉 "Dạ cháu ơi, Bác uống thuốc cữ sáng rồi nhé"</span>
-            <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-full font-bold">Báo uống xong</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setTranscript("Hôm nay Bác cần uống những thuốc gì hả cháu?");
-              handleSpeechProcessing("Hôm nay Bác cần uống những thuốc gì hả cháu?");
-            }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-blue-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-blue-950 dark:text-blue-300 font-semibold text-base transition-colors flex items-center justify-between"
-          >
-            <span>👉 "Hôm nay Bác cần uống những thuốc gì hả cháu?"</span>
-            <span className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2.5 py-1 rounded-full font-bold">Hỏi đơn thuốc</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setTranscript("Sáng nay Bác quên, trưa Bác uống bù gấp đôi được không cháu?");
-              handleSpeechProcessing("Sáng nay Bác quên, trưa Bác uống bù gấp đôi được không cháu?");
-            }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-rose-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-rose-950 dark:text-rose-300 font-semibold text-base transition-colors flex items-center justify-between"
-          >
-            <span>👉 "Sáng nay Bác quên, trưa Bác uống bù gấp đôi được không cháu?"</span>
-            <span className="text-xs bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300 px-2.5 py-1 rounded-full font-bold">Quy tắc an toàn</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setTranscript("Cháu ơi, Bác thấy hơi chóng mặt và mệt trong người");
-              handleSpeechProcessing("Cháu ơi, Bác thấy hơi chóng mặt và mệt trong người");
-            }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-amber-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-amber-950 dark:text-amber-300 font-semibold text-base transition-colors flex items-center justify-between"
-          >
-            <span>👉 "Cháu ơi, Bác thấy hơi chóng mặt và mệt trong người"</span>
-            <span className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300 px-2.5 py-1 rounded-full font-bold">Cảnh báo khẩn</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setTranscript("Thuốc này Bác nên uống trước ăn hay sau khi ăn hả cháu?");
-              handleSpeechProcessing("Thuốc này Bác nên uống trước ăn hay sau khi ăn hả cháu?");
-            }}
-            className="text-left p-3.5 rounded-2xl bg-white hover:bg-purple-50 dark:bg-slate-800/90 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-purple-950 dark:text-purple-300 font-semibold text-base transition-colors flex items-center justify-between"
-          >
-            <span>👉 "Thuốc này Bác nên uống trước ăn hay sau khi ăn hả cháu?"</span>
-            <span className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-900 dark:text-purple-300 px-2.5 py-1 rounded-full font-bold">Hướng dẫn uống</span>
-          </button>
+        <div className="grid grid-cols-1 gap-3">
+          {[
+            {
+              text: 'Dạ cháu ơi, Bác uống thuốc cữ sáng rồi nhé',
+              tag: 'Báo đã uống'
+            },
+            {
+              text: 'Hôm nay thời tiết như thế nào hả cháu?',
+              tag: 'Hỏi thời tiết thực tế'
+            },
+            {
+              text: 'Thông tin về chế độ dinh dưỡng làm sao cho người già khỏe hơn',
+              tag: 'Tư vấn dinh dưỡng'
+            },
+            {
+              text: 'Cháu ơi, Bác thấy hơi chóng mặt và mệt trong người',
+              tag: 'Báo triệu chứng'
+            },
+            {
+              text: 'Hôm nay Bác cần uống những thuốc gì hả cháu?',
+              tag: 'Hỏi đơn thuốc'
+            },
+            {
+              text: 'Cháu kể cho Bác nghe một chuyện vui đi',
+              tag: 'Bầu bạn tâm sự'
+            },
+            {
+              text: 'Hôm nay Bác thấy hơi buồn và cô đơn quá cháu ơi',
+              tag: 'Tâm sự nỗi niềm'
+            },
+            {
+              text: 'Sáng nay Bác quên, trưa Bác uống bù gấp đôi được không cháu?',
+              tag: 'Hỏi an toàn thuốc'
+            }
+          ].map((item) => (
+            <button
+              key={item.text}
+              onClick={() => {
+                setTranscript(item.text);
+                handleSpeechProcessing(item.text);
+              }}
+              className="text-left p-4 rounded-xl bg-slate-50 hover:bg-[#F0FDFA] dark:bg-slate-800 dark:hover:bg-[#0D9488]/20 border border-slate-200 dark:border-slate-700 text-[#0B1F3A] dark:text-white font-semibold text-base sm:text-lg transition-colors flex items-center justify-between gap-3 cursor-pointer"
+            >
+              <span>“{item.text}”</span>
+              <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 text-[#0D9488] dark:text-[#2DD4BF] border border-slate-200 dark:border-slate-700 shrink-0">
+                {item.tag}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </div>

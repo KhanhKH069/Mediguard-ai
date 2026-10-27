@@ -35,6 +35,10 @@ class Schedule(Base):
     verified_at = Column(DateTime, default=_utcnow, nullable=False)
     notes = Column(String, nullable=True)               # Ghi chú đã đối chiếu theo đơn thuốc của bác sĩ
 
+    # Ảnh mẫu ngăn thuốc do con cái chụp khi chia thuốc & vị trí ngăn
+    reference_image = Column(String, nullable=True)     # Ảnh mẫu ngăn thuốc (Baseline) do con cái chụp
+    compartment_number = Column(Integer, default=1, nullable=True) # Số ngăn thuốc trên khay (1, 2, 3...)
+
     elder = relationship("User", foreign_keys=[elder_id])
     verifier = relationship("User", foreign_keys=[verified_by])
 

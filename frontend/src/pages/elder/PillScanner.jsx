@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, ArrowLeft, CheckCircle, AlertCircle, HelpCircle, Upload, Sparkles, RefreshCw, Volume2, SwitchCamera } from 'lucide-react';
+import { Camera, ArrowLeft, CheckCircle, AlertCircle, HelpCircle, Upload, RefreshCw, SwitchCamera } from 'lucide-react';
 import { captureCameraFrame } from '../../services/cameraService';
 import { fetchMedications, speakText, verifyPillImage } from '../../services/api';
 import { playChimeSound } from '../../utils/soundEffects';
@@ -14,10 +14,9 @@ export default function PillScanner({ onBack }) {
   const [isLoading, setIsLoading] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [previewSrc, setPreviewSrc] = useState(null);
-  const [facingMode, setFacingMode] = useState('environment'); // 'environment' (cam sau) | 'user' (cam trước)
+  const [facingMode, setFacingMode] = useState('environment');
 
   useEffect(() => {
-    // Tải danh mục thuốc
     fetchMedications()
       .then((data) => {
         setMedications(data || []);
@@ -28,7 +27,6 @@ export default function PillScanner({ onBack }) {
       .catch((e) => console.warn('Lỗi tải danh mục thuốc:', e));
   }, []);
 
-  // Bật/tắt hoặc đổi camera
   useEffect(() => {
     let currentStream = null;
     async function startCam() {
@@ -77,14 +75,13 @@ export default function PillScanner({ onBack }) {
     try {
       const data = await verifyPillImage(formData);
       setResult(data);
-      // Đọc to kết quả cho Bác nghe
       if (data.message) {
         speakText(data.message).catch(() => {});
       }
     } catch (err) {
       setResult({
         cv_status: 'LOW_CONFIDENCE',
-        score: 0.2,
+        score: 0.4,
         message: 'Dạ thưa Bác, hệ thống đã lưu lại ảnh để con cháu kiểm tra đối chiếu trực tiếp giúp Bác rồi ạ.'
       });
     } finally {
@@ -100,7 +97,6 @@ export default function PillScanner({ onBack }) {
     await sendImageForVerification(blob);
   };
 
-  // Chọn ảnh từ máy tính / thiết bị
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -109,7 +105,6 @@ export default function PillScanner({ onBack }) {
     }
   };
 
-  // Thử nhanh với ảnh demo
   const handleTestDemoSample = async (samplePath) => {
     try {
       setIsLoading(true);
@@ -125,32 +120,30 @@ export default function PillScanner({ onBack }) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col items-center gap-6">
-      {/* Nút quay lại */}
       <button
         onClick={onBack}
-        className="self-start flex items-center gap-2 text-base md:text-lg font-bold text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white bg-white dark:bg-slate-800/90 px-5 py-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition-all active:scale-95"
+        className="self-start flex items-center gap-2 text-base font-bold text-[#0B1F3A] dark:text-white bg-white dark:bg-[#0E1E36] px-5 py-3 rounded-xl shadow-saas border border-slate-200 dark:border-slate-800 transition-all cursor-pointer"
       >
-        <ArrowLeft className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Quay Lại Màn Hình Chính
+        <ArrowLeft className="w-5 h-5 text-[#0D9488]" /> Quay lại màn hình chính
       </button>
 
       <div className="text-center max-w-xl">
-        <h2 className="text-3xl md:text-4xl font-display font-black text-slate-900 dark:text-white tracking-tight">
-          Soi Vỉ Thuốc Bằng Camera 📸
+        <h2 className="text-2xl md:text-3xl font-display font-bold text-[#0B1F3A] dark:text-white tracking-tight">
+          Kiểm tra vỉ thuốc bằng Camera
         </h2>
-        <p className="text-base md:text-lg text-slate-600 dark:text-slate-300 mt-2 font-medium">
-          Dạ thưa Bác, Bác chọn loại thuốc cần kiểm tra, đưa vỉ thuốc vào khung hình sáng rõ và bấm nút chụp nhé ạ.
+        <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 mt-1.5">
+          Bác chọn loại thuốc cần kiểm tra, đưa vỉ thuốc vào khung hình sáng rõ và bấm nút chụp.
         </p>
       </div>
 
-      {/* Bộ chọn loại thuốc cần đối chiếu */}
-      <div className="w-full glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-        <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
-          💊 Thuốc Bác Cần Đối Chiếu:
+      <div className="w-full bg-white dark:bg-[#0E1E36] p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-saas">
+        <span className="text-sm font-bold text-[#0B1F3A] dark:text-slate-200">
+          Thuốc cần đối chiếu:
         </span>
         <select
           value={selectedMedId}
           onChange={(e) => setSelectedMedId(e.target.value)}
-          className="w-full sm:w-auto px-4 py-2.5 rounded-xl border-2 border-blue-500 bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm"
+          className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#0D9488] bg-slate-50 dark:bg-slate-800 font-bold text-[#0B1F3A] dark:text-white outline-none"
         >
           {medications.map((m) => (
             <option key={m.id} value={m.id}>
@@ -160,63 +153,54 @@ export default function PillScanner({ onBack }) {
         </select>
       </div>
 
-      {/* Khung Camera / Viewfinder với Laser Scan Animation */}
-      <div className="relative w-full aspect-video max-w-xl bg-slate-950 rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800">
+      <div className="relative w-full aspect-video max-w-xl bg-slate-950 rounded-3xl overflow-hidden shadow-saas-lg border-2 border-slate-800">
         {cameraActive && !previewSrc ? (
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
         ) : previewSrc ? (
           <img src={previewSrc} alt="Captured preview" className="w-full h-full object-contain bg-black/80" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
-            <Camera className="w-16 h-16 text-slate-600 mb-3" />
-            <p className="text-lg font-bold">Chưa tìm thấy camera phần cứng</p>
-            <p className="text-sm text-slate-500 mt-1">Bác có thể chọn nút "Tải ảnh từ máy" hoặc thử mẫu bên dưới</p>
+            <Camera className="w-14 h-14 text-slate-600 mb-3" />
+            <p className="text-base font-bold">Chưa tìm thấy camera phần cứng</p>
+            <p className="text-xs text-slate-500 mt-1">Bác có thể chọn nút "Tải ảnh từ máy" hoặc thử mẫu bên dưới</p>
           </div>
         )}
 
-        {/* Khung ngắm y tế */}
-        <div className="absolute inset-6 border-2 border-dashed border-emerald-400/60 rounded-2xl pointer-events-none flex flex-col justify-between p-3">
+        <div className="absolute inset-6 border-2 border-dashed border-[#2DD4BF]/60 rounded-2xl pointer-events-none flex flex-col justify-between p-3">
           <div className="flex justify-between">
-            <div className="w-5 h-5 border-t-4 border-l-4 border-emerald-400 rounded-tl" />
-            <div className="w-5 h-5 border-t-4 border-r-4 border-emerald-400 rounded-tr" />
+            <div className="w-5 h-5 border-t-4 border-l-4 border-[#2DD4BF] rounded-tl" />
+            <div className="w-5 h-5 border-t-4 border-r-4 border-[#2DD4BF] rounded-tr" />
           </div>
           <div className="text-center">
-            <span className="text-emerald-300 font-bold bg-black/60 px-4 py-1 rounded-full text-xs backdrop-blur-sm border border-emerald-500/30">
+            <span className="text-[#5EEAD4] font-semibold bg-black/60 px-4 py-1 rounded-full text-xs backdrop-blur-xs">
               {isLoading ? 'Đang phân tích hình ảnh AI...' : 'Đặt vỉ thuốc ngay ngắn ở đây'}
             </span>
           </div>
           <div className="flex justify-between">
-            <div className="w-5 h-5 border-b-4 border-l-4 border-emerald-400 rounded-bl" />
-            <div className="w-5 h-5 border-b-4 border-r-4 border-emerald-400 rounded-br" />
+            <div className="w-5 h-5 border-b-4 border-l-4 border-[#2DD4BF] rounded-bl" />
+            <div className="w-5 h-5 border-b-4 border-r-4 border-[#2DD4BF] rounded-br" />
           </div>
         </div>
-
-        {/* Tia laser quét lên xuống khi chụp/phân tích */}
-        {isLoading && (
-          <div className="absolute left-0 right-0 top-1/4 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#10b981] animate-laser-scan pointer-events-none" />
-        )}
       </div>
 
-      {/* Hàng nút bấm chụp, đổi camera & tải ảnh */}
       <div className="flex flex-wrap items-center justify-center gap-3 w-full">
         <button
           onClick={handleCapture}
           disabled={isLoading || !cameraActive}
-          className="min-h-[64px] px-8 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-display font-black text-xl rounded-2xl flex items-center gap-3 shadow-glow-purple disabled:opacity-50 transition-all"
+          className="min-h-[56px] px-7 bg-[#0D9488] hover:bg-[#0F766E] text-white font-display font-bold text-lg rounded-2xl flex items-center gap-2.5 shadow-saas-md disabled:opacity-50 transition-all cursor-pointer"
         >
-          <Camera className="w-6 h-6" />
-          <span>{isLoading ? 'ĐANG ĐỐI CHIẾU...' : 'CHỤP VỈ THUỐC'}</span>
+          <Camera className="w-5 h-5" />
+          <span>{isLoading ? 'Đang đối chiếu...' : 'Chụp vỉ thuốc'}</span>
         </button>
 
         {cameraActive && !previewSrc && (
           <button
             onClick={toggleFacingMode}
             disabled={isLoading}
-            className="min-h-[64px] px-5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-base rounded-2xl flex items-center gap-2 border border-slate-300 dark:border-slate-700 shadow-sm active:scale-95 transition-all"
-            title="Đổi giữa camera sau và camera trước"
+            className="min-h-[56px] px-5 bg-white dark:bg-slate-800 hover:bg-slate-100 text-[#0B1F3A] dark:text-slate-200 font-semibold text-sm rounded-2xl flex items-center gap-2 border border-slate-200 dark:border-slate-700 cursor-pointer"
           >
-            <SwitchCamera className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            <span className="hidden sm:inline">{facingMode === 'environment' ? 'Đổi Cam Trước' : 'Đổi Cam Sau'}</span>
+            <SwitchCamera className="w-5 h-5 text-[#0D9488]" />
+            <span>{facingMode === 'environment' ? 'Đổi Cam Trước' : 'Đổi Cam Sau'}</span>
           </button>
         )}
 
@@ -231,74 +215,70 @@ export default function PillScanner({ onBack }) {
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="min-h-[64px] px-6 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-base rounded-2xl flex items-center gap-2 border border-slate-300 dark:border-slate-700 shadow-sm active:scale-95 transition-all"
+          className="min-h-[56px] px-5 bg-white dark:bg-slate-800 hover:bg-slate-100 text-[#0B1F3A] dark:text-slate-200 font-semibold text-sm rounded-2xl flex items-center gap-2 border border-slate-200 dark:border-slate-700 cursor-pointer"
         >
-          <Upload className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-          <span>Tải Ảnh Từ Máy</span>
+          <Upload className="w-5 h-5 text-[#0D9488]" />
+          <span>Tải ảnh từ máy</span>
         </button>
 
         {previewSrc && (
           <button
             onClick={() => setPreviewSrc(null)}
-            className="min-h-[64px] px-4 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold rounded-2xl flex items-center gap-1.5 transition-all active:scale-95"
-            title="Quay lại khung camera trực tiếp"
+            className="min-h-[56px] px-4 bg-slate-100 dark:bg-slate-800 text-[#0B1F3A] dark:text-slate-200 font-semibold rounded-2xl flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw className="w-5 h-5" />
-            <span className="text-sm">Bật lại Cam</span>
+            <RefreshCw className="w-4 h-4" />
+            <span className="text-xs">Mở lại Camera</span>
           </button>
         )}
       </div>
 
-      {/* Thanh Demo tiện lợi để kiểm thử ngay 2 trường hợp MATCHED vs MISMATCH */}
-      <div className="w-full glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
-        <span className="font-bold text-slate-600 dark:text-slate-300">Kiểm thử nhanh bằng ảnh mẫu:</span>
+      <div className="w-full bg-white dark:bg-[#0E1E36] p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm shadow-saas">
+        <span className="font-semibold text-slate-600 dark:text-slate-300">Kiểm thử nhanh bằng ảnh mẫu:</span>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => handleTestDemoSample('/demo_pills/amlodipine.jpg')}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 border border-emerald-300 dark:border-emerald-800 transition-all active:scale-95"
+            className="px-3.5 py-2 rounded-xl bg-[#F0FDFA] text-[#0F766E] font-semibold text-xs border border-[#99F6E4] cursor-pointer"
           >
-            <span>✓ Vỉ Amlodipine 5mg (Đúng mẫu)</span>
+            ✓ Vỉ Amlodipine 5mg (Phù hợp)
           </button>
           <button
             onClick={() => handleTestDemoSample('/demo_pills/mismatch_capsule.jpg')}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl bg-rose-100 dark:bg-rose-950/60 hover:bg-rose-200 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-300 font-bold text-xs flex items-center gap-1.5 border border-rose-300 dark:border-rose-800 transition-all active:scale-95"
+            className="px-3.5 py-2 rounded-xl bg-red-50 text-red-700 font-semibold text-xs border border-red-200 cursor-pointer"
           >
-            <span>✗ Viên nang Redoxin (Khác mẫu)</span>
+            ✗ Viên nang Redoxin (Không khớp)
           </button>
         </div>
       </div>
 
-      {/* Thẻ Kết Quả 3 Trạng Thái Chuẩn An Toàn Y Tế */}
       {result && (
         <div
-          className={`w-full max-w-xl p-6 rounded-3xl border-2 text-center transition-all shadow-xl ${
+          className={`w-full max-w-xl p-6 rounded-2xl border-2 text-center transition-all shadow-saas-md ${
             result.cv_status === 'MATCHED'
-              ? 'bg-emerald-50/95 dark:bg-emerald-950/50 border-emerald-400 dark:border-emerald-600 text-emerald-950 dark:text-emerald-200 shadow-emerald-500/10'
+              ? 'bg-[#F0FDFA] border-[#0D9488] text-[#0B1F3A]'
               : result.cv_status === 'MISMATCH'
-              ? 'bg-rose-50/95 dark:bg-rose-950/50 border-rose-400 dark:border-rose-600 text-rose-950 dark:text-rose-200 shadow-rose-500/10'
-              : 'bg-amber-50/95 dark:bg-amber-950/50 border-amber-400 dark:border-amber-600 text-amber-950 dark:text-amber-200 shadow-amber-500/10'
+              ? 'bg-red-50 border-red-500 text-red-950'
+              : 'bg-amber-50 border-amber-500 text-amber-950'
           }`}
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            {result.cv_status === 'MATCHED' && <CheckCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />}
-            {result.cv_status === 'MISMATCH' && <AlertCircle className="w-8 h-8 text-rose-600 dark:text-rose-400" />}
-            {result.cv_status === 'LOW_CONFIDENCE' && <HelpCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
-            <h4 className="text-xl md:text-2xl font-display font-black tracking-tight">
-              {result.cv_status === 'MATCHED' && 'PHÙ HỢP TRONG PHẠM VI KIỂM TRA'}
-              {result.cv_status === 'MISMATCH' && 'CẢNH BÁO: KHÔNG TRÙNG KHỚP'}
-              {result.cv_status === 'LOW_CONFIDENCE' && 'HÌNH ẢNH CHƯA ĐỦ RÕ RÀNG'}
+            {result.cv_status === 'MATCHED' && <CheckCircle className="w-7 h-7 text-[#0D9488]" />}
+            {result.cv_status === 'MISMATCH' && <AlertCircle className="w-7 h-7 text-red-600" />}
+            {result.cv_status === 'LOW_CONFIDENCE' && <HelpCircle className="w-7 h-7 text-amber-600" />}
+            <h4 className="text-xl font-display font-bold">
+              {result.cv_status === 'MATCHED' && 'Kết quả: Phù hợp với mẫu thuốc'}
+              {result.cv_status === 'MISMATCH' && 'Cảnh báo: Không khớp mẫu thuốc'}
+              {result.cv_status === 'LOW_CONFIDENCE' && 'Hình ảnh chưa đủ chắc chắn'}
             </h4>
           </div>
 
-          <p className="text-base md:text-lg font-semibold mt-2">{result.message}</p>
+          <p className="text-sm sm:text-base font-medium mt-1">{result.message}</p>
 
-          {/* Thanh điểm tin cậy */}
           {result.confidence_score !== undefined && (
-            <div className="mt-4 pt-3 border-t border-black/10 dark:border-white/10 flex items-center justify-center gap-3 text-xs font-bold">
+            <div className="mt-4 pt-3 border-t border-black/10 flex items-center justify-center gap-3 text-xs font-semibold">
               <span>Độ tương đồng quang học:</span>
-              <span className="px-2.5 py-1 rounded-full bg-white/80 dark:bg-slate-800 border border-black/10 dark:border-white/10 font-mono text-sm">
+              <span className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 font-mono text-sm">
                 {Math.round(result.confidence_score * 100)}%
               </span>
             </div>

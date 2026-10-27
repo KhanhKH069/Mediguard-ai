@@ -43,7 +43,14 @@ npm run dev
 ```
 Giao diện ứng dụng chạy tại: `http://localhost:5173`
 
-### Bước 4: Chạy Kiểm Thử An Toàn (Safety Tests)
+### Bước 4: Chạy Trên Điện Thoại (5G/4G Từ Xa)
+Chỉ cần nhấp đúp file:
+```bash
+run_phone_5g.bat
+```
+Hệ thống sẽ tự động bật Backend, Frontend, kích hoạt Cloudflare Tunnel và mở trang mã QR trên trình duyệt. Bạn chỉ cần bật 5G trên điện thoại và quét mã QR để sử dụng!
+
+### Bước 5: Chạy Kiểm Thử An Toàn (Safety Tests)
 ```bash
 cd backend
 pytest tests/

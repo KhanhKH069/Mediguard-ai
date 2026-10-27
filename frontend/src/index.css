@@ -2,10 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-canvas: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F1F5F9;
+  --border-warm: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --ink-primary: #0B1F3A;
+  --ink-secondary: #475569;
+  --ink-muted: #64748B;
+  --brand-navy: #0B1F3A;
+  --brand-teal: #0D9488;
+  --brand-forest: #0D9488;
+  --brand-clay: #0B1F3A;
+}
+
+html.dark {
+  --bg-canvas: #071120;
+  --bg-surface: #0E1E36;
+  --bg-subtle: #152947;
+  --border-warm: #1E3354;
+  --border-strong: #2C4870;
+  --ink-primary: #F8FAFC;
+  --ink-secondary: #94A3B8;
+  --ink-muted: #64748B;
+  --brand-navy: #16325B;
+  --brand-teal: #14B8A6;
+  --brand-forest: #14B8A6;
+  --brand-clay: #38BDF8;
+}
+
 @layer base {
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 40;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
   html {
     color-scheme: light;
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
   }
+  html.font-scale-large {
+    font-size: 17.5px;
+  }
+  html.font-scale-xlarge {
+    font-size: 19px;
+  }
+
   html.dark {
     color-scheme: dark;
   }
@@ -15,73 +79,149 @@
     font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #f8fafc;
-    color: #0f172a;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    background-color: var(--bg-canvas);
+    color: var(--ink-primary);
+    transition: background-color 0.2s ease, color 0.2s ease, font-size 0.15s ease;
   }
 
   html.dark body {
-    background-color: #090d16;
-    color: #f1f5f9;
+    background-color: var(--bg-canvas);
+    color: var(--ink-primary);
+  }
+
+  /* Tabular numerals for clinical timestamps, dosages & metrics */
+  .font-mono,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Unified Clinical Surface Card */
+  .ui-card {
+    @apply bg-white dark:bg-[#0E1E36] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-saas;
+  }
+
+  .ui-card-interactive {
+    @apply bg-white dark:bg-[#0E1E36] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-saas hover:border-[#0D9488]/60 dark:hover:border-[#2DD4BF]/50 transition-all duration-150;
+  }
+
+  /* Unified Typography Hierarchy */
+  .ui-kicker {
+    @apply text-[11px] font-mono font-semibold uppercase tracking-wider text-[#0D9488] dark:text-[#2DD4BF];
+  }
+
+  .ui-section-title {
+    @apply text-base sm:text-lg font-display font-bold text-[#0B1F3A] dark:text-white tracking-tight;
+  }
+
+  .ui-page-title {
+    @apply text-lg sm:text-xl font-display font-bold text-[#0B1F3A] dark:text-white tracking-tight;
+  }
+
+  /* Unified Form Controls */
+  .ui-label {
+    @apply block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5;
+  }
+
+  .ui-input {
+    @apply w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-medium text-[#0B1F3A] dark:text-white placeholder:text-slate-400 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#0D9488] focus:ring-2 focus:ring-[#0D9488]/15 transition-all;
+  }
+
+  .ui-select {
+    @apply w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-[#0B1F3A] dark:text-white outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-[#0D9488] focus:ring-2 focus:ring-[#0D9488]/15 transition-all cursor-pointer;
+  }
+
+  /* Unified Button Primitives */
+  .ui-btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0D9488] hover:bg-[#0F766E] active:scale-[0.99] text-white text-xs sm:text-sm font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
+  }
+
+  .ui-btn-navy {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0B1F3A] hover:bg-[#16325B] active:scale-[0.99] text-white text-xs sm:text-sm font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
+  }
+
+  .ui-btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-[0.99] text-[#0B1F3A] dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer;
+  }
+
+  .ui-btn-subtle {
+    @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer;
+  }
+
+  .ui-btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white text-xs sm:text-sm font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer;
+  }
+
+  /* Unified Clinical Table */
+  .ui-table-head {
+    @apply bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/90 dark:border-slate-800 text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold;
+  }
+
+  .ui-table-th {
+    @apply py-3 px-4 text-left whitespace-nowrap;
+  }
+
+  .ui-table-td {
+    @apply py-3.5 px-4 align-middle;
   }
 }
 
 @layer utilities {
   .glass-card {
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-warm);
+    box-shadow: 0 1px 2px 0 rgba(11, 31, 58, 0.03), 0 2px 6px -1px rgba(11, 31, 58, 0.03);
   }
 
   html.dark .glass-card {
-    background: rgba(15, 23, 42, 0.82);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-warm);
+    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.35);
   }
 
   .glass-card-dark {
-    background: rgba(15, 23, 42, 0.88);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: #0B1F3A;
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  .text-glow-blue {
-    text-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+  .bg-clinical-grid {
+    background-image: radial-gradient(rgba(13, 148, 136, 0.12) 1px, transparent 1px);
+    background-size: 16px 16px;
   }
 
-  .text-glow-cyan {
-    text-shadow: 0 0 20px rgba(6, 182, 212, 0.7);
+  .prescription-divider {
+    border-bottom: 1px dashed var(--border-strong);
   }
 
-  .text-glow-emerald {
-    text-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  .text-elder-bright {
+    color: var(--ink-primary);
+  }
+
+  .text-elder-sub {
+    color: var(--ink-secondary);
+  }
+
+  .text-elder-accent {
+    color: var(--brand-teal);
   }
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-html.dark ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 html.dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #1E3354;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #94A3B8;
 }

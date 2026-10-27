@@ -1,39 +1,12 @@
-# Build stage
-FROM node:20-alpine AS build
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json ./
 RUN npm install
 
 COPY . .
-RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+EXPOSE 3000
 
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Cấu hình Nginx chuyển hướng SPA và reverse proxy API
-RUN printf 'server {\n\
-    listen 80;\n\
-    location / {\n\
-        root /usr/share/nginx/html;\n\
-        index index.html index.htm;\n\
-        try_files $uri $uri/ /index.html;\n\
-    }\n\
-    location /api/ {\n\
-        proxy_pass http://backend:8000/api/;\n\
-        proxy_set_header Host $host;\n\
-        proxy_set_header X-Real-IP $remote_addr;\n\
-    }\n\
-    location /storage/ {\n\
-        proxy_pass http://backend:8000/storage/;\n\
-        proxy_set_header Host $host;\n\
-        proxy_set_header X-Real-IP $remote_addr;\n\
-    }\n\
-}\n' > /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "run", "dev"]

@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { HeartPulse, Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, UserPlus, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  HeartPulse,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  ArrowRight,
+  UserPlus,
+  AlertCircle,
+  CheckCircle2,
+  Activity,
+  Camera,
+  Mic
+} from 'lucide-react';
 import { loginUser, registerUser, fetchUsers, setStoredUser } from '../../services/api';
 
 export default function Login({ onLoginSuccess }) {
@@ -7,9 +21,9 @@ export default function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState('ELDER'); // 'ELDER' | 'CAREGIVER'
+  const [role, setRole] = useState('CAREGIVER'); // 'ELDER' | 'CAREGIVER'
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [rememberMe, setRememberMe] = useState(false); // Mặc định không ghi nhớ để mỗi khi vào phải đăng nhập
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,7 +31,6 @@ export default function Login({ onLoginSuccess }) {
   const [successMessage, setSuccessMessage] = useState('');
   const [availableUsers, setAvailableUsers] = useState([]);
 
-  // Tải danh sách người dùng mẫu có sẵn trong hệ thống
   useEffect(() => {
     let isMounted = true;
     fetchUsers().then((users) => {
@@ -50,14 +63,13 @@ export default function Login({ onLoginSuccess }) {
       if (activeTab === 'login') {
         const result = await loginUser(username.trim(), password);
         setStoredUser(result, rememberMe);
-        setSuccessMessage('Đăng nhập thành công! Đang chuyển hướng...');
+        setSuccessMessage('Đăng nhập thành công. Đang mở hệ thống MediGuard AI...');
         setTimeout(() => {
           onLoginSuccess(result);
-        }, 500);
+        }, 350);
       } else {
-        // Đăng ký mới
         if (!fullName.trim()) {
-          setErrorMessage('Vui lòng nhập họ và tên của cụ hoặc người thân.');
+          setErrorMessage('Vui lòng nhập họ và tên người dùng.');
           setIsLoading(false);
           return;
         }
@@ -71,10 +83,10 @@ export default function Login({ onLoginSuccess }) {
         });
 
         setStoredUser(result, rememberMe);
-        setSuccessMessage('Tạo tài khoản thành công! Đang khởi động hệ thống...');
+        setSuccessMessage('Đã khởi tạo hồ sơ mới thành công.');
         setTimeout(() => {
           onLoginSuccess(result);
-        }, 600);
+        }, 450);
       }
     } catch (err) {
       setErrorMessage(err.message || 'Không thể kết nối tới máy chủ. Vui lòng thử lại.');
@@ -84,241 +96,295 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-[#070b14] flex flex-col items-center justify-center p-4 selection:bg-blue-500 selection:text-white">
-      {/* Background glowing ambient */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/15 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0B1F3A] flex items-center justify-center p-4 sm:p-6 lg:p-10">
+      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-3xl border border-slate-200 shadow-saas-lg overflow-hidden">
+        
+        {/* Cột trái: Nền Navy lâm sàng & Chọn nhanh tài khoản Demo */}
+        <div className="lg:col-span-6 bg-[#0B1F3A] text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden">
+          <div className="space-y-6 relative z-10">
+            <div className="inline-flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-[#0D9488] flex items-center justify-center shadow-sm">
+                <HeartPulse className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-[#5EEAD4] block">
+                  Nền tảng Y tế Gia đình Thông minh
+                </span>
+                <span className="font-display font-bold text-xl tracking-tight text-white">
+                  MediGuard AI
+                </span>
+              </div>
+            </div>
 
-      <div className="max-w-md w-full relative z-10 space-y-6">
-        {/* Brand Header */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-600 shadow-glow-blue text-white ring-4 ring-blue-500/20 animate-pulse">
-            <HeartPulse className="w-9 h-9 stroke-[2.5]" />
+            <div className="space-y-3 pt-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold leading-tight tracking-tight text-white">
+                An tâm từng cữ thuốc của người thân mỗi ngày
+              </h1>
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                Hệ thống giám sát tuân thủ điều trị đa tầng kết hợp giọng nói tiếng Việt, thị giác máy tính đối chiếu thuốc và cổng quản trị gia đình thời gian thực.
+              </p>
+            </div>
+
+            {/* 3 trụ cột công nghệ */}
+            <div className="space-y-3 pt-4 border-t border-white/10">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/10 text-[#5EEAD4] flex items-center justify-center shrink-0 mt-0.5">
+                  <Mic className="w-4 h-4" />
+                </div>
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                  <strong className="text-white">Trợ lý giọng nói tự nhiên:</strong> Nhắc cữ uống rõ ràng và lắng nghe phản hồi, triệu chứng của người cao tuổi.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/10 text-[#5EEAD4] flex items-center justify-center shrink-0 mt-0.5">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                  <strong className="text-white">Kiểm tra hình ảnh thuốc bằng AI:</strong> Đối chiếu vỉ thuốc và ngăn thuốc với mẫu chuẩn, cảnh báo sai lệch tức thời.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/10 text-[#5EEAD4] flex items-center justify-center shrink-0 mt-0.5">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                  <strong className="text-white">Xác thực chéo 3 lớp độc lập:</strong> Kết nối người cao tuổi, thiết bị tại nhà và người chăm sóc từ xa.
+                </p>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-display font-black text-white tracking-tight flex items-center justify-center gap-1.5">
-              MEDIGUARD <span className="text-blue-400">AI</span>
-            </h1>
-            <p className="text-sm text-slate-400 font-medium mt-1">
-              Trợ lý AI quản lý lịch dùng thuốc người cao tuổi Việt Nam
-            </p>
+
+          {/* Chọn nhanh tài khoản Demo thuyết trình */}
+          <div className="mt-8 pt-6 border-t border-white/10 space-y-3 relative z-10">
+            <div className="flex items-center justify-between text-xs text-slate-300">
+              <span className="font-semibold">Tài khoản Demo thuyết trình (Chạm để điền nhanh):</span>
+              <span className="font-mono text-[#5EEAD4]">MK: 123456</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('login');
+                  handleQuickLogin({ username: 'anh_nam' });
+                }}
+                className="p-3.5 rounded-xl bg-[#16325B]/90 hover:bg-[#1E4072] border border-[#0D9488]/50 text-left transition-all cursor-pointer group"
+              >
+                <div className="text-[11px] font-semibold text-[#5EEAD4]">
+                  Dashboard Gia Đình (Caregiver)
+                </div>
+                <div className="text-sm font-display font-bold text-white mt-0.5">
+                  Anh Nam (Người chăm sóc)
+                </div>
+                <div className="text-xs text-slate-300 font-mono mt-0.5">ID: anh_nam</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('login');
+                  handleQuickLogin({ username: 'ong_ba' });
+                }}
+                className="p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-left transition-all cursor-pointer group"
+              >
+                <div className="text-[11px] font-semibold text-amber-300">
+                  Màn Hình Người Cao Tuổi
+                </div>
+                <div className="text-sm font-display font-bold text-white mt-0.5">
+                  Bác Nguyễn Văn Ba
+                </div>
+                <div className="text-xs text-slate-300 font-mono mt-0.5">ID: ong_ba</div>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/40">
-          {/* Tab Selector */}
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-900/80 rounded-2xl border border-slate-700/60 mb-6">
-            <button
-              type="button"
-              onClick={() => { setActiveTab('login'); setErrorMessage(''); setSuccessMessage(''); }}
-              className={`py-2.5 rounded-xl font-display font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                activeTab === 'login'
-                  ? 'bg-blue-600 text-white shadow-glow-blue'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <User className="w-4 h-4" />
-              <span>Đăng Nhập</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('register'); setErrorMessage(''); setSuccessMessage(''); }}
-              className={`py-2.5 rounded-xl font-display font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                activeTab === 'register'
-                  ? 'bg-blue-600 text-white shadow-glow-blue'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-              }`}
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Tạo Hồ Sơ Mới</span>
-            </button>
-          </div>
-
-          {/* Quick Demo Select (Khi ở tab Đăng nhập) */}
-          {activeTab === 'login' && (
-            <div className="mb-6 p-3.5 rounded-2xl bg-slate-900/60 border border-slate-700/70 space-y-2.5">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
-                <span className="flex items-center gap-1.5 text-blue-300">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Bấm chọn nhanh tài khoản mẫu:
-                </span>
-                <span className="text-[11px] text-slate-500">Mật khẩu: 123456</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin({ username: 'ong_ba' })}
-                  className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-blue-600/20 border border-slate-700 hover:border-blue-500/50 text-left transition-all active:scale-95 group"
-                >
-                  <div className="text-xs font-bold text-white group-hover:text-blue-300">
-                    👴 Bác Ba (72 tuổi)
-                  </div>
-                  <div className="text-[10px] text-slate-400">Tài khoản Bác (ong_ba)</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin({ username: 'anh_nam' })}
-                  className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-indigo-600/20 border border-slate-700 hover:border-indigo-500/50 text-left transition-all active:scale-95 group"
-                >
-                  <div className="text-xs font-bold text-white group-hover:text-indigo-300">
-                    👨‍⚕️ Anh Nam (Con trai)
-                  </div>
-                  <div className="text-[10px] text-slate-400">Con trai / Người chăm sóc (anh_nam)</div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Nếu đang đăng ký mới */}
-            {activeTab === 'register' && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    Họ Và Tên Của Bác Hoặc Con Cháu:
-                  </label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ví dụ: Bác Nguyễn Văn Ba hoặc Anh Nam"
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-900/90 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white placeholder-slate-500 text-sm outline-none transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    Vai Trò Trong Gia Đình:
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRole('ELDER')}
-                      className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
-                        role === 'ELDER'
-                          ? 'bg-blue-600/30 border-blue-500 text-blue-300'
-                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                      }`}
-                    >
-                      👴 Người cao tuổi (Bác)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole('CAREGIVER')}
-                      className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
-                        role === 'CAREGIVER'
-                          ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300'
-                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                      }`}
-                    >
-                      👨‍⚕️ Người chăm sóc (Con/Cháu)
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Tên đăng nhập */}
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Tên Đăng Nhập (Username):
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Nhập tên đăng nhập..."
-                  autoCapitalize="none"
-                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-slate-900/90 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white placeholder-slate-500 text-sm outline-none transition-all font-mono"
-                />
-                <User className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              </div>
+        {/* Cột phải: Biểu mẫu Đăng nhập / Mở hồ sơ */}
+        <div className="lg:col-span-6 p-8 sm:p-10 flex flex-col justify-between bg-white">
+          <div>
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 mb-7">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('login'); setErrorMessage(''); setSuccessMessage(''); }}
+                className={`py-2.5 rounded-lg font-sans font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  activeTab === 'login'
+                    ? 'bg-[#0B1F3A] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-[#0B1F3A]'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>Đăng nhập</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('register'); setErrorMessage(''); setSuccessMessage(''); }}
+                className={`py-2.5 rounded-lg font-sans font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  activeTab === 'register'
+                    ? 'bg-[#0B1F3A] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-[#0B1F3A]'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Tạo tài khoản</span>
+              </button>
             </div>
 
-            {/* Mật khẩu */}
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Mật Khẩu:
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu..."
-                  className="w-full pl-11 pr-11 py-3 rounded-2xl bg-slate-900/90 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white placeholder-slate-500 text-sm outline-none transition-all font-mono"
-                />
-                <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="p-1 text-slate-400 hover:text-white absolute right-3.5 top-1/2 -translate-y-1/2 rounded-lg transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-display font-bold text-[#0B1F3A]">
+                {activeTab === 'login' ? 'Đăng nhập hệ thống MediGuard' : 'Khởi tạo hồ sơ gia đình'}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                {activeTab === 'login'
+                  ? 'Chọn nhanh tài khoản mẫu bên trái hoặc nhập thông tin tài khoản của bạn.'
+                  : 'Thiết lập tài khoản mới cho người chăm sóc hoặc người thân lớn tuổi.'}
+              </p>
             </div>
 
-            {/* Tùy chọn: Ghi nhớ đăng nhập */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700 focus:ring-blue-500 focus:ring-offset-slate-900"
-                />
-                <span className="text-xs text-slate-400 font-medium">Ghi nhớ đăng nhập trên máy này</span>
-              </label>
-            </div>
-
-            {/* Báo lỗi / Thành công */}
-            {errorMessage && (
-              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-            {successMessage && (
-              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            {/* Nút bấm Submit */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full mt-2 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-display font-black text-base shadow-glow-blue transition-all active:scale-98 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {activeTab === 'register' && (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Đang xử lý...</span>
-                </>
-              ) : activeTab === 'login' ? (
-                <>
-                  <span>Đăng Nhập Vào Hệ Thống</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              ) : (
-                <>
-                  <span>Hoàn Tất & Tạo Hồ Sơ</span>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Họ và tên đầy đủ
+                    </label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ví dụ: Nguyễn Văn Nam"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#0D9488] focus:bg-white text-[#0B1F3A] placeholder-slate-400 text-sm font-medium outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Vai trò sử dụng
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setRole('CAREGIVER')}
+                        className={`p-3 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer ${
+                          role === 'CAREGIVER'
+                            ? 'bg-[#F0FDFA] border-[#0D9488] text-[#0F766E]'
+                            : 'bg-slate-50 border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        <div className="font-display text-sm">Người chăm sóc</div>
+                        <div className="text-[11px] font-normal opacity-80 mt-0.5">Quản lý lịch & giám sát từ xa</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRole('ELDER')}
+                        className={`p-3 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer ${
+                          role === 'ELDER'
+                            ? 'bg-[#F0FDFA] border-[#0D9488] text-[#0F766E]'
+                            : 'bg-slate-50 border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        <div className="font-display text-sm">Người cao tuổi</div>
+                        <div className="text-[11px] font-normal opacity-80 mt-0.5">Chữ lớn, nghe nhắc thuốc</div>
+                      </button>
+                    </div>
+                  </div>
                 </>
               )}
-            </button>
-          </form>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Tên đăng nhập
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="anh_nam hoặc ong_ba"
+                    autoCapitalize="none"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#0D9488] focus:bg-white text-[#0B1F3A] placeholder-slate-400 text-sm outline-none transition-colors font-mono"
+                  />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Mật khẩu
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu..."
+                    className="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-[#0D9488] focus:bg-white text-[#0B1F3A] placeholder-slate-400 text-sm outline-none transition-colors font-mono"
+                  />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-1 text-slate-400 hover:text-[#0B1F3A] absolute right-3 top-1/2 -translate-y-1/2 rounded-lg transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded accent-[#0D9488]"
+                  />
+                  <span className="text-xs text-slate-600 font-medium">Duy trì đăng nhập trên thiết bị này</span>
+                </label>
+              </div>
+
+              {errorMessage && (
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+              {successMessage && (
+                <div className="p-3.5 rounded-xl bg-[#F0FDFA] border border-[#99F6E4] text-[#0F766E] text-xs font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full mt-2 py-3.5 rounded-xl bg-[#0D9488] hover:bg-[#0F766E] active:scale-[0.99] text-white font-display font-bold text-sm sm:text-base shadow-saas-md transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+              >
+                {isLoading ? (
+                  <span>Đang xác thực...</span>
+                ) : activeTab === 'login' ? (
+                  <>
+                    <span>Truy cập Hệ thống</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                ) : (
+                  <>
+                    <span>Hoàn tất Đăng ký</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-[#0D9488]" />
+              <span>Mã hóa & bảo mật hồ sơ sức khỏe gia đình</span>
+            </span>
+            <span className="font-mono">MediGuard AI v2.4</span>
+          </div>
         </div>
 
-        {/* Security Footer Note */}
-        <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-medium text-center">
-          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Bảo mật dữ liệu sức khỏe • Phân quyền thông minh cho gia đình</span>
-        </div>
       </div>
     </div>
   );

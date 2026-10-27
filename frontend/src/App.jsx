@@ -1,62 +1,205 @@
 import React, { useState, useEffect } from 'react';
-import { HeartPulse, Settings, User, LogOut, ArrowLeft, Activity, Calendar, Pill, History, Radio, Shield, Sun, Moon, Zap, Wifi } from 'lucide-react';
+import {
+  HeartPulse,
+  Settings,
+  Users,
+  LogOut,
+  LayoutDashboard,
+  CalendarClock,
+  ScanEye,
+  History,
+  Sun,
+  Moon,
+  AlertTriangle,
+  X,
+  Type,
+  ShieldCheck,
+  Menu,
+  ChevronRight,
+  Smartphone,
+  Mic
+} from 'lucide-react';
 import ElderHome from './pages/elder/ElderHome';
+import ElderStitchApp from './pages/elder/ElderStitchApp';
 import VoiceDialogue from './pages/elder/VoiceDialogue';
+import ElderDrugLookup from './pages/elder/ElderDrugLookup';
+import ElderSymptomReport from './pages/elder/ElderSymptomReport';
 import PillScanner from './pages/elder/PillScanner';
 import Login from './pages/auth/Login';
 
 import Dashboard from './pages/caregiver/Dashboard';
+import RelativeManager from './pages/caregiver/RelativeManager';
 import ScheduleManager from './pages/caregiver/ScheduleManager';
-import MedicationList from './pages/caregiver/MedicationList';
+import DrugLookup from './pages/caregiver/DrugLookup';
 import LogsView from './pages/caregiver/LogsView';
+import SettingsView from './pages/caregiver/SettingsView';
 import PinModal from './components/PinModal';
-import { fetchHealth, measurePing, subscribeLivePing, connectRealtimeUpdates, getStoredUser, clearStoredUser, fetchElders } from './services/api';
+import ElderVoiceControl from './components/ElderVoiceControl';
+import {
+  measurePing,
+  subscribeLivePing,
+  connectRealtimeUpdates,
+  getStoredUser,
+  clearStoredUser,
+  fetchElders
+} from './services/api';
+import { playChimeSound } from './utils/soundEffects';
+
+const SAAS_NAV_ITEMS = [
+  {
+    id: 'dashboard',
+    step: '01',
+    label: 'Dashboard gia đình',
+    shortLabel: 'Tổng quan',
+    sublabel: 'Lịch hôm nay, trạng thái & cảnh báo',
+    icon: LayoutDashboard
+  },
+  {
+    id: 'relatives',
+    step: '02',
+    label: 'Quản lý người thân',
+    shortLabel: 'Người thân',
+    sublabel: 'Hồ sơ, đơn thuốc & lịch sử theo dõi',
+    icon: Users
+  },
+  {
+    id: 'schedules',
+    step: '03',
+    label: 'Theo dõi thuốc',
+    shortLabel: 'Lịch thuốc',
+    sublabel: 'Lịch nhắc, giờ xác nhận & chờ duyệt',
+    icon: CalendarClock
+  },
+  {
+    id: 'vision_check',
+    step: '04',
+    label: 'Kiểm tra hình ảnh thuốc',
+    shortLabel: 'Kiểm tra ảnh',
+    sublabel: 'Phù hợp • Không khớp • Chưa chắc chắn',
+    icon: ScanEye
+  },
+  {
+    id: 'logs',
+    step: '05',
+    label: 'Nhật ký theo dõi',
+    shortLabel: 'Nhật ký',
+    sublabel: 'Lịch sử giọng nói & sự kiện y khoa',
+    icon: History
+  },
+  {
+    id: 'settings',
+    step: '06',
+    label: 'Cài đặt',
+    shortLabel: 'Cài đặt',
+    sublabel: 'Tài khoản, người chăm sóc & thông báo',
+    icon: Settings
+  }
+];
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const preview = params.get('preview');
+      if (preview === 'caregiver') {
+        return { user_id: 2, username: 'anh_nam', full_name: 'Nguyễn Văn Nam (Con trai)', role: 'CAREGIVER' };
+      }
+      if (preview === 'elder') {
+        return { user_id: 1, username: 'ong_ba', full_name: 'Bác Nguyễn Văn Ba', role: 'ELDER' };
+      }
+    }
+    return getStoredUser();
+  });
   const [mode, setMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const preview = params.get('preview');
+      if (preview === 'caregiver') return 'caregiver';
+      if (preview === 'elder') return 'elder';
+    }
     const user = getStoredUser();
     return user?.role === 'CAREGIVER' ? 'caregiver' : 'elder';
   });
-  const [elderSubPage, setElderSubPage] = useState('home'); // 'home' | 'voice' | 'scan'
-  const [caregiverTab, setCaregiverTab] = useState('dashboard'); // 'dashboard' | 'schedules' | 'medications' | 'logs'
+  const [elderSubPage, setElderSubPage] = useState('home');
+  const [scannerSchedule, setScannerSchedule] = useState(null);
+  const [isVoiceControlOpen, setIsVoiceControlOpen] = useState(false);
+  const [caregiverTab, setCaregiverTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab && SAAS_NAV_ITEMS.some((item) => item.id === tab)) {
+        return tab;
+      }
+    }
+    return 'dashboard';
+  });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [eldersList, setEldersList] = useState([]);
-  const [caregiverElderId, setCaregiverElderId] = useState(1);
-  
-  // Theme state: Mặc định bật chế độ Tối (Dark Mode) siêu sắc nét theo yêu cầu
-  const [theme, setTheme] = useState(() => localStorage.getItem('mediguard_theme') || 'dark');
+  const [caregiverElderId, setCaregiverElderId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('mediguard_selected_elder_id');
+      if (saved) {
+        const parsed = Number(saved);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
+    return null;
+  });
+  const [liveSymptomToast, setLiveSymptomToast] = useState(null);
+
+  const [theme, setTheme] = useState(() => localStorage.getItem('mediguard_theme_v2') || 'light');
+  const [fontScale, setFontScale] = useState(() => localStorage.getItem('mediguard_font_scale') || 'normal');
   const [livePing, setLivePing] = useState(2);
   const [wsConnected, setWsConnected] = useState(true);
 
-  // Áp dụng class 'dark' lên document element
+  const handleNavigateCaregiverTab = (target) => {
+    if (target === 'medication_tracking') {
+      setCaregiverTab('schedules');
+    } else {
+      setCaregiverTab(target);
+    }
+    setMobileSidebarOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('mediguard_theme', theme);
+    localStorage.setItem('mediguard_theme_v2', theme);
   }, [theme]);
 
-  // Giám sát Ping RTT thời gian thực qua WebSocket & REST
   useEffect(() => {
-    // Đo ping ban đầu
+    document.documentElement.classList.remove('font-scale-large', 'font-scale-xlarge');
+    if (fontScale === 'large') {
+      document.documentElement.classList.add('font-scale-large');
+    } else if (fontScale === 'xlarge') {
+      document.documentElement.classList.add('font-scale-xlarge');
+    }
+    localStorage.setItem('mediguard_font_scale', fontScale);
+  }, [fontScale]);
+
+  useEffect(() => {
     measurePing();
 
-    // Lắng nghe cập nhật ping từ WebSocket heartbeat
     const unsubPing = subscribeLivePing((ms) => {
       setLivePing(ms);
     });
 
-    // Kết nối WebSocket đồng bộ và đo Ping liên tục (Zero Latency)
     const disconnectWs = connectRealtimeUpdates(
-      () => {},
+      (msg) => {
+        if (msg && msg.type === 'symptom_alert') {
+          playChimeSound();
+          setLiveSymptomToast(msg.data?.message || 'Bác vừa ghi nhận triệu chứng sức khỏe mới.');
+        }
+      },
       (status) => setWsConnected(status === 'connected'),
       (ms) => setLivePing(ms)
     );
 
-    // Chu kỳ fallback kiểm tra kết nối mỗi 10 giây
     const timer = setInterval(() => {
       measurePing();
     }, 10000);
@@ -68,7 +211,6 @@ export default function App() {
     };
   }, []);
 
-  // Chuyển sang màn hình người chăm sóc cần nhập mã PIN
   const handleRequestCaregiverMode = () => {
     setIsPinModalOpen(true);
   };
@@ -78,22 +220,42 @@ export default function App() {
     setMode('caregiver');
   };
 
-  // Tải danh sách người cao tuổi để phân biệt dữ liệu giữa các tài khoản
+  const handleSelectElder = (id) => {
+    const numId = id ? Number(id) : null;
+    setCaregiverElderId(numId);
+    if (numId) {
+      sessionStorage.setItem('mediguard_selected_elder_id', String(numId));
+    } else {
+      sessionStorage.removeItem('mediguard_selected_elder_id');
+    }
+  };
+
+  const loadEldersList = async () => {
+    try {
+      const elders = await fetchElders();
+      if (elders && elders.length > 0) {
+        setEldersList(elders);
+        if (currentUser?.role === 'CAREGIVER') {
+          setCaregiverElderId((prev) => (elders.some((e) => e.id === prev) ? prev : null));
+        }
+      } else {
+        setEldersList([]);
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     if (currentUser) {
-      fetchElders().then((elders) => {
-        if (elders && elders.length > 0) {
-          setEldersList(elders);
-          if (currentUser.role === 'CAREGIVER') {
-            setCaregiverElderId((prev) => (elders.some((e) => e.id === prev) ? prev : elders[0].id));
-          }
-        }
-      });
+      loadEldersList();
     }
   }, [currentUser]);
 
-  const activeElderId = currentUser?.role === 'ELDER' ? currentUser.user_id : caregiverElderId;
-  const currentElderProfile = eldersList.find((e) => e.id === activeElderId) || (eldersList.length > 0 ? eldersList[0] : null);
+  const activeElderId = currentUser?.role === 'ELDER'
+    ? (currentUser.user_id || currentUser.id)
+    : (caregiverElderId || null);
+  const currentElderProfile = activeElderId
+    ? (eldersList.find((e) => e.id === activeElderId) || null)
+    : null;
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
@@ -106,6 +268,8 @@ export default function App() {
 
   const handleLogout = () => {
     clearStoredUser();
+    sessionStorage.removeItem('mediguard_selected_elder_id');
+    setCaregiverElderId(null);
     setCurrentUser(null);
     setMode('elder');
     setElderSubPage('home');
@@ -115,206 +279,454 @@ export default function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Nếu chưa đăng nhập: Luôn hiển thị màn hình Đăng Nhập
   if (!currentUser) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] flex flex-col font-sans text-slate-900 dark:text-slate-100 transition-colors selection:bg-blue-500 selection:text-white">
-      {/* Top Header Bar */}
-      <header className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 sticky top-0 z-40 shadow-sm transition-all">
-        <div className="max-w-6xl mx-auto px-4 h-20 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-glow-blue">
-              <HeartPulse className="w-7 h-7 stroke-[2.5] animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-display font-black tracking-tight text-slate-900 dark:text-white flex items-center">
-                  MEDIGUARD <span className="text-blue-600 dark:text-blue-400 ml-1">AI</span>
-                </h1>
-                <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                  v1.0 Pro
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold tracking-tight">
-                Trợ lý AI an toàn dùng thuốc cho người cao tuổi
-              </p>
-            </div>
-          </div>
+  const activeNavMeta =
+    SAAS_NAV_ITEMS.find((item) => item.id === caregiverTab) || SAAS_NAV_ITEMS[0];
 
-          {/* Trạng thái Kết nối & Nút chuyển chế độ & Tài khoản */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Ping pill "Max Ping" */}
-            <button
-              onClick={measurePing}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/90 dark:hover:bg-slate-700/90 border border-slate-200 dark:border-slate-700/80 text-xs font-mono font-bold transition-all shadow-sm active:scale-95"
-              title="Bấm vào để kiểm tra lại Ping tức thời"
-            >
-              <span className="relative flex h-2.5 w-2.5">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${wsConnected ? 'bg-emerald-400 opacity-75' : 'bg-rose-400 opacity-75'}`} />
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${wsConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-              </span>
-              <span className="text-slate-800 dark:text-emerald-400 font-extrabold flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5 fill-current text-amber-500" />
-                <span>{livePing}ms</span>
-              </span>
-            </button>
-
-            {/* Nút Chuyển Đổi Chế Độ Tối / Sáng */}
-            <button
-              onClick={toggleTheme}
-              className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm"
-              title={theme === 'dark' ? 'Đổi sang giao diện Sáng' : 'Đổi sang giao diện Tối (Bảo vệ mắt ban đêm)'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            {/* Chuyển đổi giữa chế độ Người cao tuổi & Người chăm sóc */}
-            {mode === 'elder' ? (
-              <button
-                onClick={handleRequestCaregiverMode}
-                className="flex items-center gap-2 px-3 sm:px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs sm:text-sm transition-all border border-slate-300 dark:border-slate-700 shadow-sm active:scale-95"
-                title="Mở khu vực quản lý người chăm sóc (Cần PIN)"
-              >
-                <Settings className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="hidden md:inline">Khu Vực Người Chăm Sóc</span>
-                <span className="md:hidden">Quản Lý</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setMode('elder')}
-                className="flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-glow-blue transition-all active:scale-95"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Giao Diện Dành Cho Bác</span>
-              </button>
-            )}
-
-            {/* Thông tin tài khoản & Nút ĐĂNG XUẤT */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-              <div className="hidden lg:flex flex-col text-right">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[130px]" title={currentUser?.full_name}>
-                  {currentUser?.full_name || currentUser?.username}
-                </span>
-                <span className="text-[10px] text-blue-500 dark:text-blue-400 font-semibold">
-                  {currentUser?.role === 'CAREGIVER' ? 'Người chăm sóc' : 'Người cao tuổi (Bác)'}
-                </span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 text-xs font-bold transition-all shadow-sm active:scale-95"
-                title="Đăng xuất khỏi tài khoản để chuyển người dùng khác"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Đăng Xuất</span>
-              </button>
-            </div>
-          </div>
+  // ============================================================================
+  // CHẾ ĐỘ NGƯỜI CAO TUỔI (ELDER INTERFACE - THIẾT KẾ STITCH CHUẨN)
+  // ============================================================================
+  if (mode === 'elder') {
+    if (elderSubPage === 'pill_scanner') {
+      return (
+        <div className="min-h-screen bg-surface font-body-md text-on-surface">
+          <PillScanner
+            onBack={() => setElderSubPage('home')}
+            scheduleId={scannerSchedule?.id || 1}
+            scheduleTitle={scannerSchedule ? `Cữ ${scannerSchedule.time_period} (${scannerSchedule.target_time})` : 'Cữ Sáng'}
+            expectedMeds={scannerSchedule?.medications || []}
+          />
         </div>
-      </header>
+      );
+    }
+    if (elderSubPage === 'drug_lookup') {
+      return (
+        <div className="min-h-screen bg-surface font-body-md text-on-surface">
+          <ElderDrugLookup onBack={() => setElderSubPage('home')} currentUser={currentUser} elderId={activeElderId} />
+        </div>
+      );
+    }
+    if (elderSubPage === 'symptom_report') {
+      return (
+        <div className="min-h-screen bg-surface font-body-md text-on-surface">
+          <ElderSymptomReport onBack={() => setElderSubPage('home')} currentUser={currentUser} elderId={activeElderId} />
+        </div>
+      );
+    }
+    if (elderSubPage === 'voice') {
+      return (
+        <div className="min-h-screen bg-surface font-body-md text-on-surface">
+          <VoiceDialogue onBack={() => setElderSubPage('home')} currentUser={currentUser} elderId={activeElderId} />
+        </div>
+      );
+    }
 
-      {/* Nội dung chính */}
-      <main className="flex-1 pb-12">
-        {mode === 'elder' ? (
-          <div>
-            {elderSubPage === 'home' && (
-              <ElderHome
-                currentUser={currentUser}
-                onOpenVoice={() => setElderSubPage('voice')}
-                onOpenScan={() => setElderSubPage('scan')}
-              />
-            )}
-            {elderSubPage === 'voice' && (
-              <VoiceDialogue onBack={() => setElderSubPage('home')} />
-            )}
-            {elderSubPage === 'scan' && (
-              <PillScanner onBack={() => setElderSubPage('home')} />
-            )}
-          </div>
-        ) : (
-          <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-            {/* Thanh hiển thị & chuyển đổi hồ sơ Người cao tuổi đang chăm sóc */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold shadow-glow-blue shrink-0">
-                  <User className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider font-extrabold text-blue-600 dark:text-blue-400">
-                    Hồ Sơ Y Tế Đang Theo Dõi (Dữ Liệu Độc Lập Riêng Biệt):
+    return (
+      <>
+        <ElderStitchApp
+          currentUser={currentUser}
+          elderId={activeElderId}
+          onRequestCaregiverMode={handleRequestCaregiverMode}
+          onLogout={handleLogout}
+          onOpenPillScanner={(sch) => {
+            setScannerSchedule(sch);
+            setElderSubPage('pill_scanner');
+          }}
+          onOpenDrugLookup={() => setElderSubPage('drug_lookup')}
+          onOpenSymptomReport={() => setElderSubPage('symptom_report')}
+          livePing={livePing}
+          wsConnected={wsConnected}
+        />
+
+        <PinModal
+          isOpen={isPinModalOpen}
+          onClose={() => setIsPinModalOpen(false)}
+          onSuccess={handlePinSuccess}
+        />
+      </>
+    );
+  }
+
+  // ============================================================================
+  // CHẾ ĐỘ HEALTHCARE SAAS (CAREGIVER / FAMILY PORTAL)
+  // ============================================================================
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex font-sans text-[#0B1F3A] dark:text-slate-100 transition-colors selection:bg-[#0D9488] selection:text-white">
+      {/* Mobile Sidebar Backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR ĐIỀU HƯỚNG (DEEP CLINICAL NAVY #0B1F3A) */}
+      <aside
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-68 bg-[#0B1F3A] text-white flex flex-col justify-between border-r border-slate-800/80 transition-transform duration-200 ease-out shrink-0 ${
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Logo Header */}
+          <div className="h-16 px-5 flex items-center justify-between border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-[#0D9488] flex items-center justify-center shadow-xs">
+                <HeartPulse className="w-5 h-5 text-white stroke-[2.25]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-bold text-base tracking-tight text-white">
+                    MediGuard AI
                   </span>
-                  <div className="font-display font-black text-slate-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
-                    <span>{currentElderProfile ? currentElderProfile.full_name : (currentUser?.role === 'ELDER' ? currentUser.full_name : 'Bác Ba (72 tuổi)')}</span>
-                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono">
-                      Mã: #{activeElderId}
-                    </span>
+                  <span className="text-[10px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded bg-teal-500/20 text-[#2DD4BF] border border-teal-400/30">
+                    Clinical
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-none mt-0.5">
+                  Medication Care SaaS
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Patient Context Selector inside Sidebar */}
+          <div className="px-3.5 pt-3.5 pb-2">
+            <div className="p-3 rounded-xl bg-white/[0.05] border border-white/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
+                  Hồ sơ người thân
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Đang giám sát
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#0D9488]/30 border border-[#2DD4BF]/40 flex items-center justify-center font-display font-bold text-xs text-[#2DD4BF] shrink-0">
+                  {currentElderProfile ? currentElderProfile.full_name.charAt(0) : '?'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-white truncate">
+                    {currentElderProfile
+                      ? currentElderProfile.full_name
+                      : currentUser?.role === 'ELDER'
+                      ? (currentUser.full_name || 'Hồ sơ người cao tuổi')
+                      : 'Chưa chọn người thân'}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono tabular-nums">
+                    {activeElderId ? `ID #${activeElderId}` : 'Vui lòng chọn hồ sơ'}
                   </div>
                 </div>
               </div>
 
-              {/* Nếu có nhiều người cao tuổi trong hệ thống thì hiện dropdown chọn nhanh */}
-              {eldersList.length > 1 && currentUser?.role === 'CAREGIVER' && (
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Đổi hồ sơ Bác:</span>
-                  <select
-                    value={activeElderId}
-                    onChange={(e) => setCaregiverElderId(Number(e.target.value))}
-                    className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-sm"
-                  >
-                    {eldersList.map((el) => (
-                      <option key={el.id} value={el.id}>
-                        {el.full_name} ({el.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {currentUser?.role === 'CAREGIVER' && eldersList.length > 0 && (
+                <select
+                  value={activeElderId || ''}
+                  onChange={(e) => handleSelectElder(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-white/15 text-xs font-medium text-slate-200 outline-none focus:border-[#2DD4BF] cursor-pointer"
+                >
+                  <option value="">-- Chọn hồ sơ người thân --</option>
+                  {eldersList.map((el) => (
+                    <option key={el.id} value={el.id}>
+                      {el.full_name} (@{el.username})
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
+          </div>
 
-            {/* Thanh điều hướng Tab Người chăm sóc */}
-            <div className="flex flex-wrap gap-2 glass-card p-2 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800">
-              {[
-                { id: 'dashboard', label: 'Tổng Quan 3 Trạng Thái', icon: Activity },
-                { id: 'schedules', label: 'Quản Lý Lịch Nhắc', icon: Calendar },
-                { id: 'medications', label: 'Danh Mục Thuốc & Ảnh Mẫu', icon: Pill },
-                { id: 'logs', label: 'Nhật Ký Kiểm Toán Y Tế', icon: History },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = caregiverTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setCaregiverTab(tab.id)}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-display font-bold text-sm transition-all active:scale-95 ${
-                      isActive
-                        ? 'bg-blue-600 text-white shadow-glow-blue'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
+          {/* 6 Main Navigation Screens */}
+          <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto" aria-label="Điều hướng chính">
+            <div className="px-2.5 pb-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+              Phân hệ quản lý
             </div>
+            {SAAS_NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = caregiverTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavigateCaregiverTab(item.id)}
+                  className={`w-full group flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-[#0D9488] text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? 'text-white' : 'text-[#2DD4BF] group-hover:text-white'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <div className="text-xs sm:text-[13px] font-semibold truncate">
+                        {item.label}
+                      </div>
+                      <p
+                        className={`text-[11px] truncate ${
+                          isActive ? 'text-teal-100/90' : 'text-slate-400'
+                        }`}
+                      >
+                        {item.sublabel}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                      isActive ? 'text-white translate-x-0.5' : 'text-slate-500 opacity-0 group-hover:opacity-100'
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
-            {/* Nội dung từng tab - Dữ liệu riêng biệt theo activeElderId */}
-            {caregiverTab === 'dashboard' && <Dashboard elderId={activeElderId} currentUser={currentUser} />}
-            {caregiverTab === 'schedules' && <ScheduleManager elderId={activeElderId} currentUser={currentUser} />}
-            {caregiverTab === 'medications' && <MedicationList elderId={activeElderId} currentUser={currentUser} />}
-            {caregiverTab === 'logs' && <LogsView elderId={activeElderId} currentUser={currentUser} />}
+        {/* Bottom Switch to Elder Screen */}
+        <div className="p-3.5 border-t border-white/10 space-y-2.5 shrink-0 bg-slate-950/30">
+          <button
+            onClick={() => setMode('elder')}
+            className="w-full py-2.5 px-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/15 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <Smartphone className="w-4 h-4 text-[#2DD4BF]" />
+            <span>Màn Hình Của Bác (Senior UI)</span>
+          </button>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#2DD4BF]" />
+              <span>3-Layer Clinical Auth</span>
+            </span>
+            <span className="font-mono text-[10px] text-teal-300">v2.5</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col min-w-0 pb-16 lg:pb-0">
+        {/* TOP HEADER */}
+        <header className="h-16 bg-white/95 dark:bg-[#0E1E36]/95 backdrop-blur-xs border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-[#0B1F3A] dark:text-white hover:bg-slate-100 cursor-pointer"
+              aria-label="Mở menu điều hướng"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="min-w-0 flex items-center gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-lg font-display font-bold text-[#0B1F3A] dark:text-white truncate">
+                    {activeNavMeta.label}
+                  </h1>
+                  <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" />
+                    <span>
+                      {currentElderProfile
+                        ? currentElderProfile.full_name
+                        : activeElderId
+                        ? `Người thân #${activeElderId}`
+                        : 'Chưa chọn hồ sơ'}
+                    </span>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate hidden sm:block">
+                  {activeNavMeta.sublabel}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Header Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Connection / Latency Pill */}
+            <button
+              onClick={measurePing}
+              className="hidden xl:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              title="Kiểm tra độ trễ kết nối thời gian thực"
+            >
+              <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              <span>{wsConnected ? 'Đồng bộ' : 'Ngoại tuyến'}</span>
+              <span className="font-mono text-[11px] text-[#0D9488] dark:text-[#2DD4BF] tabular-nums">
+                {livePing}ms
+              </span>
+            </button>
+
+            {/* Font size scaler */}
+            <button
+              onClick={() => {
+                setFontScale((prev) => (prev === 'normal' ? 'large' : prev === 'large' ? 'xlarge' : 'normal'));
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#0B1F3A] dark:text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
+              title="Tăng giảm cỡ chữ hiển thị"
+            >
+              <Type className="w-3.5 h-3.5 text-[#0D9488]" />
+              <span className="hidden sm:inline">
+                {fontScale === 'normal' ? 'Chữ vừa' : fontScale === 'large' ? 'Chữ lớn' : 'Rất lớn'}
+              </span>
+            </button>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-amber-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+              title={theme === 'dark' ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            {/* User Account & Logout */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+              <div className="hidden md:flex flex-col text-right">
+                <span className="text-xs font-bold text-[#0B1F3A] dark:text-white truncate max-w-[130px]">
+                  {currentUser?.full_name || currentUser?.username}
+                </span>
+                <span className="text-[10px] text-[#0D9488] dark:text-[#2DD4BF] font-medium">
+                  {currentUser?.role === 'CAREGIVER' ? 'Người chăm sóc' : 'Hồ sơ gia đình'}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-red-50 hover:text-red-700 dark:bg-slate-800 dark:hover:bg-red-950/50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                title="Đăng xuất tài khoản"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Thoát</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Live Symptom Alert Toast */}
+        {liveSymptomToast && (
+          <div className="bg-red-600 text-white px-4 sm:px-8 py-2.5 border-b border-red-700 z-30">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-200 shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold">{liveSymptomToast}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleNavigateCaregiverTab('logs');
+                    setLiveSymptomToast(null);
+                  }}
+                  className="px-3 py-1 rounded-lg bg-white text-red-700 text-xs font-bold hover:bg-red-50 cursor-pointer"
+                >
+                  Kiểm tra ngay
+                </button>
+                <button
+                  onClick={() => setLiveSymptomToast(null)}
+                  className="p-1 rounded-lg hover:bg-white/15 text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
-      </main>
 
-      {/* Footer bản quyền & triết lý an toàn */}
-      <footer className="border-t border-slate-200 dark:border-slate-800/80 bg-white/60 dark:bg-slate-950/70 py-4 text-center text-xs text-slate-500 dark:text-slate-500 font-medium">
-        <p>MediGuard AI © 2026 • Trợ lý an toàn dùng thuốc người cao tuổi • Triết lý Append-Only Event Log • Max Ping Hub</p>
-      </footer>
+        {/* PAGE BODY */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-5 sm:py-6 max-w-7xl w-full mx-auto">
+          {caregiverTab === 'dashboard' && (
+            <Dashboard
+              elderId={activeElderId}
+              currentUser={currentUser}
+              onNavigate={handleNavigateCaregiverTab}
+            />
+          )}
 
-      {/* Modal bảo vệ mã PIN 4 số */}
+          {caregiverTab === 'relatives' && (
+            <RelativeManager
+              elderId={activeElderId}
+              eldersList={eldersList}
+              onSelectElder={handleSelectElder}
+              onEldersUpdated={loadEldersList}
+              onNavigate={handleNavigateCaregiverTab}
+              currentUser={currentUser}
+            />
+          )}
+
+          {caregiverTab === 'schedules' && (
+            <ScheduleManager elderId={activeElderId} currentUser={currentUser} />
+          )}
+
+          {caregiverTab === 'vision_check' && (
+            <DrugLookup elderId={activeElderId} currentUser={currentUser} />
+          )}
+
+          {caregiverTab === 'logs' && (
+            <LogsView elderId={activeElderId} currentUser={currentUser} />
+          )}
+
+          {caregiverTab === 'settings' && (
+            <SettingsView
+              currentUser={currentUser}
+              elderId={activeElderId}
+              isDarkMode={theme === 'dark'}
+              onToggleTheme={toggleTheme}
+              fontScale={fontScale}
+              onChangeFontScale={setFontScale}
+            />
+          )}
+        </main>
+
+        {/* SAAS FOOTER */}
+        <footer className="border-t border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-[#0E1E36]/80 py-3.5 px-4 sm:px-8 text-xs text-slate-500 dark:text-slate-400">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span className="font-display font-semibold text-[#0B1F3A] dark:text-white">
+              MediGuard AI — Nền tảng Quản lý Tuân thủ Thuốc & Đối chiếu Thị giác Y khoa
+            </span>
+            <span className="flex items-center gap-1.5 text-[#0D9488] dark:text-[#2DD4BF] font-medium">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Chuẩn xác thực 3 lớp (Voice • Vision • Caregiver)</span>
+            </span>
+          </div>
+        </footer>
+      </div>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR (Hiển thị trên màn hình < 1024px) */}
+      <nav
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#0E1E36]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-1 py-1.5 grid grid-cols-6 gap-0.5"
+        aria-label="Điều hướng di động"
+      >
+        {SAAS_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = caregiverTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleNavigateCaregiverTab(item.id)}
+              className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-colors cursor-pointer ${
+                isActive
+                  ? 'text-[#0D9488] dark:text-[#2DD4BF] bg-teal-50/70 dark:bg-teal-950/40 font-bold'
+                  : 'text-slate-500 dark:text-slate-400 font-medium'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span className="text-[10px] leading-tight mt-1 truncate max-w-full">
+                {item.shortLabel}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
       <PinModal
         isOpen={isPinModalOpen}
         onClose={() => setIsPinModalOpen(false)}

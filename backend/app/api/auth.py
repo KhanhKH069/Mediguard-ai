@@ -80,36 +80,6 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # Nếu đăng ký tài khoản Người cao tuổi, khởi tạo sẵn 3 khung giờ uống thuốc chuẩn (Sáng, Trưa, Tối)
-    if new_user.role == Role.ELDER:
-        try:
-            from app.models.schedule import Schedule
-            sch_morning = Schedule(
-                elder_id=new_user.id,
-                time_period="Sáng",
-                target_time="07:30",
-                verified_by=new_user.id,
-                notes="Khung giờ uống thuốc buổi sáng chuẩn"
-            )
-            sch_noon = Schedule(
-                elder_id=new_user.id,
-                time_period="Trưa",
-                target_time="12:00",
-                verified_by=new_user.id,
-                notes="Khung giờ uống thuốc buổi trưa chuẩn"
-            )
-            sch_evening = Schedule(
-                elder_id=new_user.id,
-                time_period="Tối",
-                target_time="19:00",
-                verified_by=new_user.id,
-                notes="Khung giờ uống thuốc buổi tối chuẩn"
-            )
-            db.add_all([sch_morning, sch_noon, sch_evening])
-            db.commit()
-        except Exception:
-            db.rollback()
-
     token = create_access_token(data={"sub": new_user.username, "role": new_user.role, "user_id": new_user.id})
     return {
         "access_token": token,

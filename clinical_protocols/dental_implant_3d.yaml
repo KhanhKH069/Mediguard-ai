@@ -1,0 +1,61 @@
+# ==============================================================================
+# MEDIGUARD CLINICAL PROTOCOL: DENTAL IMPLANT & ORAL SURGERY (3-DAY FOLLOW-UP)
+# Approved by Dental Board - Protocol ID: PROTO-DENT-IMPLANT-3D
+# Applicable to: Dental Implants, Wisdom Tooth Extraction, Maxillofacial Surgery
+# ==============================================================================
+
+protocol_id: "dental_implant_3d"
+name: "Quy trình theo dõi sau cấy ghép Implant & Tiểu phẫu răng miệng (3 ngày)"
+department: "Khoa Răng Hàm Mặt - Nha khoa Kỹ thuật cao"
+cadence_schedule:
+  - day: 1
+    offset_hours: 24
+    focus: "Kiểm soát chảy máu ổ răng/trụ implant, phù nề vùng má, tuân thủ cắn gạc và chườm lạnh"
+  - day: 3
+    offset_hours: 72
+    focus: "Đánh giá giảm sưng đau, há miệng, triệu chứng dị cảm tê môi cằm (dây thần kinh V3)"
+
+questions:
+  day_1:
+    - id: "d1_oral_bleeding"
+      text: "Dạ chào anh/chị, sau cấy ghép implant hôm qua, vị trí răng cấy ghép hiện tại có còn rỉ máu tươi nhiều hay chỉ hơi hồng nước bọt ạ?"
+      expected_entity: "oral_bleeding"
+    - id: "d1_swelling"
+      text: "Má bên cấy ghép có sưng nhiều không, anh/chị đã chườm đá lạnh tích cực theo hướng dẫn chưa ạ?"
+      expected_entity: "facial_swelling"
+
+  day_3:
+    - id: "d3_numbness"
+      text: "Anh/chị kiểm tra giúp em vùng môi dưới và cằm có còn cảm giác tê bì, mất cảm giác như lúc còn thuốc tê không ạ?"
+      expected_entity: "nerve_paresthesia"
+    - id: "d3_pain_trend"
+      text: "Cơn đau và độ sưng ở má hôm nay đã bắt đầu dịu xuống so với hôm qua chưa ạ?"
+      expected_entity: "pain_trend"
+
+triage_rules:
+  RED_FLAG:
+    criteria:
+      - condition: "oral_bleeding == 'continuous_arterial_bleeding'"
+        reason: "Chảy máu khoang miệng liên tục không cầm sau khi cắn gạc 60 phút"
+        action: "KÍCH HOẠT CẤP CỨU NHA KHOA: Đến phòng khám ngay lập tức để đặt gạc cầm máu và khâu chèn"
+      - condition: "nerve_paresthesia == 'persistent_numbness_day3'"
+        reason: "Tê bì mất cảm giác hoàn toàn môi dưới cằm kéo dài sau 72h (nguy cơ chèn ép dây thần kinh răng dưới)"
+        action: "Bác sĩ phẫu thuật implant khám khẩn trong ngày, chụp phim CT ConeBeam kiểm tra"
+
+  ORANGE_FLAG:
+    criteria:
+      - condition: "pain_trend == 'worsening' and day >= 3"
+        reason: "Đau nhức giật tăng dần sau 3 ngày (nghi viêm ổ xương răng khô hoặc nhiễm trùng quanh implant)"
+        action: "Hẹn tái khám sớm để bơm rửa và điều chỉnh kháng sinh"
+
+  YELLOW_FLAG:
+    criteria:
+      - condition: "has_unclear_fields == True"
+        reason: "Bệnh nhân nói chưa rõ hoặc chưa phân biệt được giữa rỉ hồng nước bọt và chảy máu"
+        action: "Điều dưỡng gọi lại tư vấn cách kiểm tra trực quan qua gương"
+
+  GREEN_FLAG:
+    criteria:
+      - condition: "oral_bleeding in ['none', 'slight_pink_saliva'] and pain_trend in ['improving', 'mild']"
+        reason: "Không chảy máu, sưng đau giảm đúng chu trình hậu phẫu, ăn cháo nguội tốt"
+        action: "Dặn dò giữ gìn vệ sinh súc miệng nước muối, hẹn tái khám cắt chỉ"

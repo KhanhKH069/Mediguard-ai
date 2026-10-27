@@ -10,8 +10,9 @@ class Role:
     """Các vai trò hợp lệ trong hệ thống."""
     ELDER = "ELDER"          # Người cao tuổi
     CAREGIVER = "CAREGIVER"  # Người chăm sóc
+    ADMIN = "ADMIN"          # Quản trị viên hệ thống
 
-    ALL = {ELDER, CAREGIVER}
+    ALL = {ELDER, CAREGIVER, ADMIN}
 
 
 def _utcnow() -> datetime:
@@ -93,6 +94,9 @@ class User(Base):
         """
         if not self.is_active:
             return False
+
+        if self.role == Role.ADMIN:
+            return True
 
         if self.role == Role.ELDER:
             return self.id == elder_id

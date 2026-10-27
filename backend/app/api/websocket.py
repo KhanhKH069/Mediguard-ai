@@ -68,6 +68,7 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+ws_manager = manager
 
 
 def broadcast_sync(event_type: str, payload: dict):
@@ -95,6 +96,18 @@ def broadcast_sync(event_type: str, payload: dict):
         loop.create_task(manager.broadcast(message))
     except RuntimeError:
         pass
+
+
+async def notify_realtime_update(event_type: str, data: dict):
+    """
+    Hàm phát sóng bất đồng bộ sự kiện qua WebSocket tới tất cả client đang kết nối.
+    """
+    message = {
+        "type": event_type,
+        "data": data,
+        "timestamp": time.time()
+    }
+    await manager.broadcast(message)
 
 
 @router.get("/ping")

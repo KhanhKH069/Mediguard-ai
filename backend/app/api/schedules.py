@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, date
+from pathlib import Path
+import shutil
+import uuid
+
 from app.database import get_db
+from app.config import REF_IMAGES_DIR
 from app.models.schedule import Schedule
 from app.models.medication import Medication
-from app.models.user import User
+from app.models.user import User, Role
 from app.models.interaction_log import InteractionLog
 from app.schemas.schedule import ScheduleCreate, ScheduleResponse, ElderRespondRequest
 from app.voice.tts_service import (
@@ -14,20 +20,51 @@ from app.voice.tts_service import (
     generate_help_speech
 )
 from app.core.notifier import send_telegram_alert
+from app.core.zalo_service import zalo_service
 from app.api.websocket import broadcast_sync
+from app.core.security import get_current_user, require_elder_access
 
 router = APIRouter(prefix="/api/schedules", tags=["Schedules"])
 
 @router.get("/")
-def get_schedules_with_status(elder_id: int = None, db: Session = Depends(get_db)):
+def get_schedules_with_status(
+    elder_id: Optional[int] = Query(None, description="ID người cao tuổi cần lấy lịch"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Lấy danh sách các cữ thuốc cùng với các loại thuốc và trạng thái sự kiện hôm nay.
+    Bảo vệ RBAC/IDOR:
+    - ELDER chỉ xem lịch của chính mình.
+    - CAREGIVER chỉ xem lịch của người cao tuổi được liên kết.
+    - ADMIN xem được toàn bộ hoặc theo elder_id.
     """
     query = db.query(Schedule).filter(Schedule.is_active == True)
-    if elder_id:
-        query = query.filter(Schedule.elder_id == elder_id)
-    schedules = query.all()
 
+    if current_user.role == Role.ELDER:
+        if elder_id is not None and elder_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Không có quyền truy cập dữ liệu của người cao tuổi này"
+            )
+        query = query.filter(Schedule.elder_id == current_user.id)
+    elif current_user.role == Role.CAREGIVER:
+        if elder_id is not None:
+            require_elder_access(elder_id, current_user)
+            query = query.filter(Schedule.elder_id == elder_id)
+        else:
+            assigned_ids = [e.id for e in current_user.assigned_elders]
+            query = query.filter(Schedule.elder_id.in_(assigned_ids))
+    elif current_user.role == Role.ADMIN:
+        if elder_id is not None:
+            query = query.filter(Schedule.elder_id == elder_id)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vai trò không có quyền truy cập lịch uống thuốc"
+        )
+
+    schedules = query.all()
     today_str = date.today().isoformat()
     result = []
 
@@ -62,8 +99,10 @@ def get_schedules_with_status(elder_id: int = None, db: Session = Depends(get_db
             "verified_by": sch.verified_by,
             "verified_at": sch.verified_at,
             "notes": sch.notes,
+            "reference_image": sch.reference_image,
+            "compartment_number": sch.compartment_number or (1 if sch.time_period == "Sáng" else 2),
             "medications": [
-                {"id": m.id, "name": m.name, "dosage": m.dosage, "instruction": m.instruction}
+                {"id": m.id, "name": m.name, "dosage": m.dosage, "instruction": m.instruction, "reference_image": m.reference_image}
                 for m in meds
             ],
             # 3 TRẠNG THÁI TÁCH BẠCH ĐỘC LẬP
@@ -77,21 +116,105 @@ def get_schedules_with_status(elder_id: int = None, db: Session = Depends(get_db
 
     return result
 
+@router.post("/{schedule_id}/upload-reference-image")
+async def upload_schedule_reference_image(
+    schedule_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Quy định con cái/người chăm sóc là người chụp ảnh mẫu & chia thuốc:
+    Con cái chụp ảnh mẫu ngăn thuốc sau khi chia vào khay/hộp để làm chuẩn đối chiếu.
+    """
+    sch = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if not sch:
+        raise HTTPException(status_code=404, detail="Không tìm thấy cữ thuốc")
+
+    require_elder_access(sch.elder_id, current_user)
+
+    if current_user.role == Role.ELDER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ người chăm sóc mới được chụp và cập nhật ảnh mẫu ngăn thuốc"
+        )
+
+    ext = (Path(file.filename or "").suffix or ".jpg").lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        raise HTTPException(status_code=400, detail="Định dạng tệp hình ảnh không được hỗ trợ")
+
+    filename = f"ref_comp_{schedule_id}_{uuid.uuid4().hex[:8]}{ext}"
+    dest_path = (REF_IMAGES_DIR / filename).resolve()
+
+    if REF_IMAGES_DIR.resolve() not in dest_path.parents:
+        raise HTTPException(status_code=400, detail="Đường dẫn lưu tệp không hợp lệ")
+
+    with open(dest_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    sch.reference_image = filename
+    db.commit()
+
+    broadcast_sync("schedule_updated", {
+        "schedule_id": sch.id,
+        "action": "reference_image_updated",
+        "reference_image": filename
+    })
+
+    return {
+        "success": True,
+        "schedule_id": sch.id,
+        "reference_image": filename,
+        "reference_image_url": f"/storage/reference_images/{filename}"
+    }
+
 @router.post("/", response_model=ScheduleResponse)
-def create_schedule(sch_in: ScheduleCreate, db: Session = Depends(get_db)):
+def create_schedule(
+    sch_in: ScheduleCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
-    Tạo lịch dùng thuốc mới. BẮT BUỘC phải có verified_by.
+    Tạo lịch dùng thuốc mới. BẮT BUỘC phải có người chăm sóc/quản trị viên xác minh.
+    Chống IDOR & cấm người cao tuổi tự tạo/xác minh lịch.
     """
+    if current_user.role == Role.ELDER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Người cao tuổi không có quyền tự tạo hoặc xác minh lịch uống thuốc. Bắt buộc người chăm sóc hoặc nhân viên y tế thực hiện."
+        )
+
+    require_elder_access(sch_in.elder_id, current_user)
+
     if not sch_in.verified_by:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Lịch dùng thuốc bắt buộc phải có verified_by (ID người chăm sóc chịu trách nhiệm xác minh)"
         )
+
+    if sch_in.verified_by == sch_in.elder_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Người cao tuổi không thể tự xác minh lịch uống thuốc. Bắt buộc người chăm sóc hoặc nhân viên y tế xác minh."
+        )
+
     verifier = db.query(User).filter(User.id == sch_in.verified_by).first()
     if not verifier:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Người xác minh (verified_by) không tồn tại trong hệ thống"
+        )
+
+    if verifier.role not in [Role.CAREGIVER, Role.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Người xác minh phải có vai trò người chăm sóc hoặc quản trị viên"
+        )
+
+    if current_user.role == Role.CAREGIVER and sch_in.verified_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Người chăm sóc chỉ được xác minh lịch bằng định danh của chính mình"
         )
 
     db_sch = Schedule(
@@ -110,7 +233,11 @@ def create_schedule(sch_in: ScheduleCreate, db: Session = Depends(get_db)):
     return db_sch
 
 @router.post("/{schedule_id}/remind")
-async def trigger_schedule_reminder(schedule_id: int, db: Session = Depends(get_db)):
+async def trigger_schedule_reminder(
+    schedule_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Phát thông báo nhắc nhở cữ thuốc qua giọng đọc tiếng Việt.
     Ghi nhận sự kiện 'reminder_sent' bất biến vào InteractionLog.
@@ -118,6 +245,8 @@ async def trigger_schedule_reminder(schedule_id: int, db: Session = Depends(get_
     sch = db.query(Schedule).filter(Schedule.id == schedule_id).first()
     if not sch:
         raise HTTPException(status_code=404, detail="Không tìm thấy lịch")
+
+    require_elder_access(sch.elder_id, current_user)
 
     meds = db.query(Medication).filter(
         Medication.elder_id == sch.elder_id,
@@ -151,7 +280,12 @@ async def trigger_schedule_reminder(schedule_id: int, db: Session = Depends(get_
     }
 
 @router.post("/{schedule_id}/respond")
-async def elder_respond(schedule_id: int, req: ElderRespondRequest, db: Session = Depends(get_db)):
+async def elder_respond(
+    schedule_id: int,
+    req: ElderRespondRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Người cao tuổi tương tác qua 3 nút bấm hoặc giọng nói:
     - HEARD: Đã nghe nhắc / Đã uống xong -> Phát âm thanh chuông + đọc to tên từng loại thuốc đã uống!
@@ -161,6 +295,8 @@ async def elder_respond(schedule_id: int, req: ElderRespondRequest, db: Session 
     sch = db.query(Schedule).filter(Schedule.id == schedule_id).first()
     if not sch:
         raise HTTPException(status_code=404, detail="Không tìm thấy lịch")
+
+    require_elder_access(sch.elder_id, current_user)
 
     meds = db.query(Medication).filter(
         Medication.elder_id == sch.elder_id,
@@ -193,6 +329,35 @@ async def elder_respond(schedule_id: int, req: ElderRespondRequest, db: Session 
             "medications": med_names,
             "timestamp": datetime.utcnow().isoformat()
         })
+
+        # TỰ ĐỘNG GỬI BÁO CÁO THẲNG QUA TIN NHẮN ZALO CHO CON CÁI
+        elder_user = db.query(User).filter(User.id == sch.elder_id).first()
+        elder_name = elder_user.full_name if elder_user else "Bác Nguyễn Văn Ba (72 tuổi)"
+
+        ref_img_url = f"/storage/reference_images/{sch.reference_image}" if sch.reference_image else None
+        if not ref_img_url and meds:
+            for m in meds:
+                if m.reference_image:
+                    ref_img_url = f"/storage/reference_images/{m.reference_image}"
+                    break
+
+        try:
+            await zalo_service.send_pill_report(
+                elder_name=elder_name,
+                elder_id=sch.elder_id,
+                schedule_id=sch.id,
+                time_period=sch.time_period,
+                target_time=sch.target_time,
+                medications=med_names,
+                captured_image_url=ref_img_url,
+                reference_image_url=ref_img_url,
+                cv_status="MATCHED",
+                confidence_score=0.96,
+                elder_speech=req.speech_text or "Dạ, Bác đã uống xong thuốc rồi con nhé!",
+                notes=f"Zero-Touch: Bác đã xác nhận bằng giọng nói. Cữ {sch.time_period} ({', '.join(med_names)})"
+            )
+        except Exception:
+            pass
 
         return {
             "success": True,

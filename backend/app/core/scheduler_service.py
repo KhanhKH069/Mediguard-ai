@@ -80,15 +80,97 @@ def check_unresponsive_elders():
     finally:
         db.close()
 
+
+def check_and_trigger_scheduled_ai_calls():
+    """
+    Tự động gọi điện hỏi thăm bệnh nhân theo lịch:
+    Chạy định kỳ mỗi phút, đối chiếu target_time của cữ thuốc với giờ hiện tại.
+    Nếu khớp giờ và hôm nay chưa gọi, hệ thống tự động phát tín hiệu cuộc gọi AI.
+    """
+    from datetime import date
+    from app.models.user import User
+    from app.models.medication import Medication
+    from app.models.call_report import AICallReport
+    from app.core.call_ai_service import DEFAULT_APPROVED_QUESTIONS
+    from app.api.websocket import broadcast_sync
+
+    db = SessionLocal()
+    try:
+        now_time = datetime.now().strftime("%H:%M")
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Tìm các lịch cữ thuốc khớp giờ hiện tại
+        matching_schedules = db.query(Schedule).filter(
+            Schedule.target_time == now_time,
+            Schedule.is_active == True
+        ).all()
+
+        for sch in matching_schedules:
+            # Kiểm tra xem hôm nay đã có cuộc gọi cho cữ này chưa
+            already_called = db.query(AICallReport).filter(
+                AICallReport.elder_id == sch.elder_id,
+                AICallReport.schedule_id == sch.id,
+                AICallReport.call_time >= today_start
+            ).first()
+
+            if not already_called:
+                elder = db.query(User).filter(User.id == sch.elder_id).first()
+                if not elder:
+                    continue
+
+                meds = db.query(Medication).filter(
+                    Medication.elder_id == sch.elder_id,
+                    Medication.time_period == sch.time_period,
+                    Medication.is_active == True
+                ).all()
+                med_names = [m.name for m in meds]
+
+                # Chuẩn bị câu hỏi duyệt cá nhân hóa
+                custom_questions = []
+                for q in DEFAULT_APPROVED_QUESTIONS:
+                    q_c = dict(q)
+                    if q["id"] == "q1_adherence":
+                        med_str = ", ".join(med_names) if med_names else "thuốc chỉ định"
+                        q_c["question"] = (
+                            f"Kính chào {elder.full_name}! Cháu là Trợ lý Y tế AI gọi thăm sức khỏe Bác theo lịch cữ {sch.time_period}. "
+                            f"Các loại thuốc gồm {med_str}, Bác đã uống đầy đủ chưa ạ?"
+                        )
+                    custom_questions.append(q_c)
+
+                # Phát tín hiệu cuộc gọi tự động đến Kiosk của bệnh nhân
+                call_payload = {
+                    "elder_id": elder.id,
+                    "elder_name": elder.full_name,
+                    "elder_phone": elder.phone_number or "0901234567",
+                    "schedule_id": sch.id,
+                    "scheduled_time": sch.target_time,
+                    "time_period": sch.time_period,
+                    "medications": med_names,
+                    "approved_questions": custom_questions,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "call_type": "TỰ ĐỘNG THEO LỊCH",
+                }
+
+                broadcast_sync("incoming_call", call_payload)
+                logger.info(f"[Scheduler] Đã kích hoạt cuộc gọi AI tự động tới {elder.full_name} lúc {now_time}")
+    except Exception as e:
+        logger.error(f"Lỗi trong check_and_trigger_scheduled_ai_calls: {e}")
+    finally:
+        db.close()
+
+
 def start_scheduler():
     """
     Khởi động Scheduler chạy nền.
     """
     if not scheduler.running:
         scheduler.add_job(check_unresponsive_elders, 'interval', minutes=1, id="unresponsive_watcher")
+        scheduler.add_job(check_and_trigger_scheduled_ai_calls, 'interval', minutes=1, id="ai_calls_scheduler")
         scheduler.start()
-        logger.info("Scheduler Service đã khởi chạy thành công.")
+        logger.info("Scheduler Service đã khởi chạy thành công với tính năng Gọi Tự Động AI.")
+
 
 def shutdown_scheduler():
     if scheduler.running:
         scheduler.shutdown(wait=False)
+

@@ -1,38 +1,50 @@
 import React from 'react';
+import { Check, Clock, AlertTriangle } from 'lucide-react';
 
 /**
- * StatusBadge: Hiển thị 3 trạng thái độc lập theo đúng quy chuẩn MediGuard AI
- * User Responded / Device Recorded / Caregiver Confirmed
+ * StatusBadge: Nhãn trạng thái kiểm chứng 3 lớp chuẩn Clinical Healthcare SaaS
  */
-export default function StatusBadge({ type, active = false, label }) {
+export default function StatusBadge({ type, active = false, label, variant = 'default' }) {
   const configs = {
     user_responded: {
-      text: label || 'Bác Đã Phản Hồi',
-      activeBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/60 ring-1 ring-emerald-400/30',
-      dotColor: 'bg-emerald-500 shadow-sm shadow-emerald-400',
-      inactiveBg: 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/60',
-      inactiveDot: 'bg-slate-300 dark:bg-slate-600'
+      text: label || 'Bác đã phản hồi',
+      activeBg:
+        'bg-[#F0FDFA] dark:bg-[#0D9488]/20 text-[#0F766E] dark:text-[#5EEAD4] border-[#99F6E4] dark:border-[#0D9488]/40',
+      iconColor: 'text-[#0D9488] dark:text-[#2DD4BF]',
+      inactiveBg:
+        'bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border-slate-200/90 dark:border-slate-700/80'
     },
     device_recorded: {
-      text: label || 'Thiết Bị / Camera Ghi Nhận',
-      activeBg: 'bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700/60 ring-1 ring-blue-400/30',
-      dotColor: 'bg-blue-500 shadow-sm shadow-blue-400',
-      inactiveBg: 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/60',
-      inactiveDot: 'bg-slate-300 dark:bg-slate-600'
+      text: label || 'Camera đã ghi nhận',
+      activeBg:
+        'bg-[#F0F4F8] dark:bg-sky-950/40 text-[#0B1F3A] dark:text-sky-300 border-[#BCCCDC] dark:border-sky-800/60',
+      iconColor: 'text-[#0B1F3A] dark:text-sky-400',
+      inactiveBg:
+        'bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border-slate-200/90 dark:border-slate-700/80'
     },
     caregiver_confirmed: {
-      text: label || 'Người Nhà Đã Duyệt',
-      activeBg: 'bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700/60 ring-1 ring-purple-400/30',
-      dotColor: 'bg-purple-500 shadow-sm shadow-purple-400',
-      inactiveBg: 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/60',
-      inactiveDot: 'bg-slate-300 dark:bg-slate-600'
+      text: label || 'Gia đình đã duyệt',
+      activeBg:
+        'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      inactiveBg:
+        'bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border-slate-200/90 dark:border-slate-700/80'
     },
     need_verify: {
-      text: label || 'Chờ Xác Minh',
-      activeBg: 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/60 ring-1 ring-amber-400/30',
-      dotColor: 'bg-amber-500 shadow-sm shadow-amber-400',
-      inactiveBg: 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/60',
-      inactiveDot: 'bg-slate-300 dark:bg-slate-600'
+      text: label || 'Chờ xác minh',
+      activeBg:
+        'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      inactiveBg:
+        'bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border-slate-200/90 dark:border-slate-700/80'
+    },
+    alert: {
+      text: label || 'Cảnh báo',
+      activeBg:
+        'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/60',
+      iconColor: 'text-red-600 dark:text-red-400',
+      inactiveBg:
+        'bg-slate-50 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border-slate-200/90 dark:border-slate-700/80'
     }
   };
 
@@ -40,16 +52,17 @@ export default function StatusBadge({ type, active = false, label }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs md:text-sm font-semibold border transition-all ${
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold border transition-colors whitespace-nowrap ${
         active ? current.activeBg : current.inactiveBg
-      }`}
+      } ${variant === 'compact' ? 'px-2 py-0.5 text-[11px]' : ''}`}
     >
-      <span className="relative flex h-2.5 w-2.5">
-        {active && (
-          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${current.dotColor}`} />
-        )}
-        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active ? current.dotColor : current.inactiveDot}`} />
-      </span>
+      {type === 'alert' && active ? (
+        <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${current.iconColor}`} />
+      ) : active ? (
+        <Check className={`w-3.5 h-3.5 stroke-[2.5] shrink-0 ${current.iconColor}`} />
+      ) : (
+        <Clock className="w-3.5 h-3.5 opacity-60 shrink-0" />
+      )}
       <span>{current.text}</span>
     </span>
   );

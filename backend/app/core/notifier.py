@@ -32,3 +32,18 @@ async def send_telegram_alert(message: str) -> bool:
     except Exception as e:
         logger.error(f"Ngoại lệ khi gửi cảnh báo Telegram: {e}")
         return False
+
+
+def alert_caregiver(title: str, message: str, level: str = "WARNING") -> None:
+    """
+    Gửi cảnh báo đến người chăm sóc qua logging, console và Telegram chạy ngầm.
+    """
+    logger.warning(f"[{level}] {title}: {message}")
+    print(f"[{level}] {title}: {message}")
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(send_telegram_alert(f"<b>{title}</b>\n{message}"))
+    except RuntimeError:
+        pass
+
