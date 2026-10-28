@@ -3,6 +3,7 @@ import io
 import uuid
 from pathlib import Path
 from datetime import datetime, date
+from app.core.datetime_utils import utc_now
 
 from fastapi.testclient import TestClient
 from main import app
@@ -150,7 +151,7 @@ def sec_env():
         elder_id=e1.id,
         event_type="user_responded",
         response_content="Đã uống thuốc",
-        timestamp=datetime.utcnow()
+        timestamp=utc_now()
     )
     db.add_all([symp1, log1])
     db.commit()
